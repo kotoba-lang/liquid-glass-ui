@@ -70,6 +70,7 @@
    "backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));"
    "-webkit-backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));"
    "border-color:var(--liquid-glass-surface-thick-border);}\n"
+   ".liquid-glass__panel--flat{box-shadow:var(--liquid-glass-elevation-flat-shadow);}\n"
    ".liquid-glass__panel--overlay{box-shadow:var(--liquid-glass-elevation-overlay-shadow);}\n"
    ".liquid-glass__panel--floating{box-shadow:var(--liquid-glass-elevation-floating-shadow);}\n"
 

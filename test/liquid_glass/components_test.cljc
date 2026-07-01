@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [shitsuke.hiccup :as h]
-            [liquid-glass.components :as c]))
+            [liquid-glass.components :as c]
+            [liquid-glass.style :as s]))
 
 (defn html [hic] (h/->html hic))
 
@@ -39,7 +40,15 @@
   (testing "default surface/elevation add no modifier class"
     (let [out (html (c/panel "body"))]
       (is (not (str/includes? out "panel--regular")))
-      (is (not (str/includes? out "panel--raised"))))))
+      (is (not (str/includes? out "panel--raised")))))
+  (testing "every non-default surface/elevation modifier class has a component-css rule"
+    (let [css (s/component-css)]
+      (doseq [surface [:clear :thick]]
+        (is (str/includes? css (str "." (s/class-name (str "panel--" (name surface)))))
+            (str "no component-css rule for surface " surface)))
+      (doseq [elevation [:flat :overlay :floating]]
+        (is (str/includes? css (str "." (s/class-name (str "panel--" (name elevation)))))
+            (str "no component-css rule for elevation " elevation))))))
 
 (deftest sheet-test
   (let [out (html (c/sheet "body" {:label "Settings"}))]

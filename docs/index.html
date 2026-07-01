@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>liquid-glass-ui — kotoba-lang</title><link rel="icon" href="data:,"><style>:root {
+  --liquid-glass-surface-clear-blur: 12px;
+  --liquid-glass-surface-clear-saturate: 160%;
+  --liquid-glass-surface-clear-tint: rgba(255,255,255,0.06);
+  --liquid-glass-surface-clear-border: rgba(255,255,255,0.22);
+  --liquid-glass-surface-regular-blur: 20px;
+  --liquid-glass-surface-regular-saturate: 180%;
+  --liquid-glass-surface-regular-tint: rgba(255,255,255,0.14);
+  --liquid-glass-surface-regular-border: rgba(255,255,255,0.35);
+  --liquid-glass-surface-thick-blur: 32px;
+  --liquid-glass-surface-thick-saturate: 200%;
+  --liquid-glass-surface-thick-tint: rgba(255,255,255,0.22);
+  --liquid-glass-surface-thick-border: rgba(255,255,255,0.45);
+  --liquid-glass-elevation-flat-shadow: none;
+  --liquid-glass-elevation-raised-shadow: 0 1px 2px rgba(0,0,0,.12), 0 4px 10px rgba(0,0,0,.10);
+  --liquid-glass-elevation-overlay-shadow: 0 8px 24px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.12);
+  --liquid-glass-elevation-floating-shadow: 0 20px 48px rgba(0,0,0,.28), 0 6px 16px rgba(0,0,0,.16);
+  --liquid-glass-specular-highlight-opacity: 0.55;
+  --liquid-glass-specular-rim-top-opacity: 0.9;
+  --liquid-glass-specular-rim-bottom-opacity: 0.05;
+  --liquid-glass-radius-sm: 10px;
+  --liquid-glass-radius-md: 16px;
+  --liquid-glass-radius-lg: 24px;
+  --liquid-glass-radius-pill: 999px;
+  --liquid-glass-motion-press-duration: 120ms;
+  --liquid-glass-motion-press-easing: cubic-bezier(.32,.72,0,1);
+  --liquid-glass-motion-settle-duration: 420ms;
+  --liquid-glass-motion-settle-easing: cubic-bezier(.22,1,.36,1);
+}
+@media (prefers-color-scheme: dark) {
+:root {
+  --liquid-glass-surface-clear-tint: rgba(18,18,22,0.30);
+  --liquid-glass-surface-clear-border: rgba(255,255,255,0.08);
+  --liquid-glass-surface-regular-tint: rgba(20,20,24,0.42);
+  --liquid-glass-surface-regular-border: rgba(255,255,255,0.12);
+  --liquid-glass-surface-thick-tint: rgba(16,16,20,0.58);
+  --liquid-glass-surface-thick-border: rgba(255,255,255,0.16);
+  --liquid-glass-specular-highlight-opacity: 0.30;
+  --liquid-glass-specular-rim-top-opacity: 0.5;
+  --liquid-glass-specular-rim-bottom-opacity: 0.02;
+}
+}
+.liquid-glass__panel,.liquid-glass__button,.liquid-glass__icon-button,.liquid-glass__toolbar,.liquid-glass__sheet,.liquid-glass__badge{position:relative;isolation:isolate;box-sizing:border-box;color:inherit;font:inherit;transition:transform var(--liquid-glass-motion-press-duration) var(--liquid-glass-motion-press-easing),box-shadow var(--liquid-glass-motion-settle-duration) var(--liquid-glass-motion-settle-easing);}
+.liquid-glass__panel::before,.liquid-glass__button::before,.liquid-glass__icon-button::before,.liquid-glass__toolbar::before,.liquid-glass__sheet::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,rgba(255,255,255,var(--liquid-glass-specular-highlight-opacity)) 0%,rgba(255,255,255,0) 50%);mix-blend-mode:overlay;}
+.liquid-glass__panel{overflow:hidden;padding:1em;border-radius:var(--liquid-glass-radius-md);background:var(--liquid-glass-surface-regular-tint);backdrop-filter:blur(var(--liquid-glass-surface-regular-blur)) saturate(var(--liquid-glass-surface-regular-saturate));-webkit-backdrop-filter:blur(var(--liquid-glass-surface-regular-blur)) saturate(var(--liquid-glass-surface-regular-saturate));border:1px solid var(--liquid-glass-surface-regular-border);box-shadow:var(--liquid-glass-elevation-raised-shadow);}
+.liquid-glass__panel--clear{background:var(--liquid-glass-surface-clear-tint);backdrop-filter:blur(var(--liquid-glass-surface-clear-blur)) saturate(var(--liquid-glass-surface-clear-saturate));-webkit-backdrop-filter:blur(var(--liquid-glass-surface-clear-blur)) saturate(var(--liquid-glass-surface-clear-saturate));border-color:var(--liquid-glass-surface-clear-border);}
+.liquid-glass__panel--thick{background:var(--liquid-glass-surface-thick-tint);backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));-webkit-backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));border-color:var(--liquid-glass-surface-thick-border);}
+.liquid-glass__panel--flat{box-shadow:var(--liquid-glass-elevation-flat-shadow);}
+.liquid-glass__panel--overlay{box-shadow:var(--liquid-glass-elevation-overlay-shadow);}
+.liquid-glass__panel--floating{box-shadow:var(--liquid-glass-elevation-floating-shadow);}
+.liquid-glass__button,.liquid-glass__icon-button{overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:.4em;padding:.6em 1.1em;border:1px solid var(--liquid-glass-surface-regular-border);border-radius:var(--liquid-glass-radius-pill);cursor:pointer;background:var(--liquid-glass-surface-regular-tint);backdrop-filter:blur(var(--liquid-glass-surface-regular-blur)) saturate(var(--liquid-glass-surface-regular-saturate));-webkit-backdrop-filter:blur(var(--liquid-glass-surface-regular-blur)) saturate(var(--liquid-glass-surface-regular-saturate));box-shadow:var(--liquid-glass-elevation-raised-shadow);}
+.liquid-glass__icon-button{padding:.55em;aspect-ratio:1;}
+.liquid-glass__button:hover,.liquid-glass__icon-button:hover{transform:translateY(-1px);box-shadow:var(--liquid-glass-elevation-overlay-shadow);}
+.liquid-glass__button:active,.liquid-glass__icon-button:active{transform:translateY(0) scale(.97);}
+.liquid-glass__button:disabled,.liquid-glass__icon-button:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.liquid-glass__toolbar{display:flex;align-items:center;gap:.5em;padding:.5em .75em;border-radius:var(--liquid-glass-radius-lg);background:var(--liquid-glass-surface-thick-tint);backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));-webkit-backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));border:1px solid var(--liquid-glass-surface-thick-border);box-shadow:var(--liquid-glass-elevation-overlay-shadow);}
+.liquid-glass__tab-bar{display:flex;gap:.15em;}
+.liquid-glass__tab{padding:.4em .9em;border-radius:var(--liquid-glass-radius-pill);opacity:.7;transition:opacity var(--liquid-glass-motion-press-duration) var(--liquid-glass-motion-press-easing),background var(--liquid-glass-motion-press-duration) var(--liquid-glass-motion-press-easing);}
+.liquid-glass__tab--active{opacity:1;background:rgba(255,255,255,.18);}
+.liquid-glass__sheet{overflow:hidden;border-radius:var(--liquid-glass-radius-lg) var(--liquid-glass-radius-lg) 0 0;background:var(--liquid-glass-surface-thick-tint);backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));-webkit-backdrop-filter:blur(var(--liquid-glass-surface-thick-blur)) saturate(var(--liquid-glass-surface-thick-saturate));border:1px solid var(--liquid-glass-surface-thick-border);border-bottom:none;box-shadow:var(--liquid-glass-elevation-floating-shadow);padding:1.25em 1.25em calc(1.25em + env(safe-area-inset-bottom,0px));}
+.liquid-glass__scrim{position:fixed;inset:0;background:rgba(0,0,0,.28);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+.liquid-glass__badge{overflow:hidden;display:inline-flex;align-items:center;justify-content:center;min-width:1.4em;padding:.1em .45em;border-radius:var(--liquid-glass-radius-pill);font-size:.75em;background:var(--liquid-glass-surface-regular-tint);border:1px solid var(--liquid-glass-surface-regular-border);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+.liquid-glass__specular{display:none;}
+@media (prefers-reduced-motion: reduce){.liquid-glass__panel,.liquid-glass__button,.liquid-glass__icon-button,.liquid-glass__tab{transition:none;}}
+@supports not (backdrop-filter: blur(1px)){.liquid-glass__panel,.liquid-glass__button,.liquid-glass__icon-button,.liquid-glass__toolbar,.liquid-glass__sheet,.liquid-glass__badge{background:rgba(255,255,255,.85);}}</style><style>html{min-height:100%}
+body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+     color:#1c1c1e;background:linear-gradient(135deg,#ff6b6b 0%,#f7b733 22%,#4ecdc4 48%,#556fb5 72%,#7b2ff7 100%);
+     background-attachment:fixed;}
+.demo-shell{max-width:960px;margin:0 auto;padding:48px 24px 96px;}
+.demo-header{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.35);margin-bottom:36px;}
+.demo-header h1{font-size:28px;margin:0 0 10px;}
+.demo-header p{margin:0;opacity:.92;max-width:680px;line-height:1.55;font-size:14px;}
+.demo-header a{color:#fff;}
+.demo-section{margin:40px 0;}
+.demo-section h2{color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.3);font-size:13px;text-transform:uppercase;
+     letter-spacing:.08em;margin:0 0 14px;font-weight:700;}
+.demo-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+.demo-panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.demo-panel-grid .liquid-glass__panel,.demo-row .liquid-glass__panel{color:#fff;}
+.demo-panel-grid .liquid-glass__panel h3{margin:0 0 6px;font-size:15px;}
+.demo-panel-grid .liquid-glass__panel p{margin:0;font-size:13px;opacity:.85;line-height:1.5;}
+.demo-sheet-wrap{position:relative;max-width:360px;}
+.demo-sheet-wrap .liquid-glass__scrim{position:static;border-radius:20px 20px 0 0;height:36px;}
+.demo-sheet-wrap .liquid-glass__sheet{color:#fff;}
+.demo-sheet-wrap .liquid-glass__sheet h3{margin:0 0 6px;}
+.demo-sheet-wrap .liquid-glass__sheet p{margin:0 0 16px;font-size:13px;opacity:.85;line-height:1.5;}
+.liquid-glass__button,.liquid-glass__icon-button{color:#fff;}
+.demo-dark{background:#0b0b10;border-radius:20px;padding:28px;
+     --liquid-glass-surface-clear-tint:rgba(18,18,22,0.30);--liquid-glass-surface-clear-border:rgba(255,255,255,0.08);
+     --liquid-glass-surface-regular-tint:rgba(20,20,24,0.42);--liquid-glass-surface-regular-border:rgba(255,255,255,0.12);
+     --liquid-glass-surface-thick-tint:rgba(16,16,20,0.58);--liquid-glass-surface-thick-border:rgba(255,255,255,0.16);
+     --liquid-glass-specular-highlight-opacity:0.30;
+     --liquid-glass-specular-rim-top-opacity:0.5;--liquid-glass-specular-rim-bottom-opacity:0.02;}
+.demo-dark .liquid-glass__panel,.demo-dark .liquid-glass__toolbar,.demo-dark .liquid-glass__button,
+.demo-dark .liquid-glass__icon-button{color:#fff;}
+.demo-footer{color:#fff;opacity:.75;font-size:12px;text-align:center;margin-top:64px;}
+.demo-footer a{color:#fff;}</style></head><body><div class="demo-shell"><header class="demo-header"><h1>liquid-glass-ui</h1><p>kotoba-lang's shared liquid-glass visual skin — material tokens + a portable CSS style
+           layer + pure-hiccup components, built on <a href="https://github.com/kotoba-lang/shitsuke" target="_blank">shitsuke</a>. <a href="https://github.com/kotoba-lang/liquid-glass-ui">Source</a> · <a href="https://github.com/kotoba-lang/liquid-glass-ui/blob/main/docs/design.md">Design docs</a></p></header><section class="demo-section"><h2>Toolbar</h2><header class="shitsuke__toolbar liquid-glass__toolbar"><nav><button class="shitsuke__button liquid-glass__icon-button" type="button">☰<span aria-hidden class="liquid-glass__specular"></span></button><button class="shitsuke__button liquid-glass__icon-button" type="button">🔍<span aria-hidden class="liquid-glass__specular"></span></button><span class="liquid-glass__badge">3</span><button class="shitsuke__button liquid-glass__icon-button" type="button">⚙<span aria-hidden class="liquid-glass__specular"></span></button></nav><span aria-hidden class="liquid-glass__specular"></span></header></section><section class="demo-section"><h2>Tab bar</h2><nav class="liquid-glass__tab-bar"><button key="visual" type="button" class="liquid-glass__tab liquid-glass__tab--active" data-act="visual">Visual</button><button key="edn" type="button" class="liquid-glass__tab" data-act="edn">EDN</button><button key="preview" type="button" class="liquid-glass__tab" data-act="preview">Preview</button><span aria-hidden class="liquid-glass__specular"></span></nav></section><section class="demo-section"><h2>Surface variants</h2><div class="demo-panel-grid"><section class="shitsuke__card liquid-glass__panel liquid-glass__panel--clear"><h3>clear</h3><p>Barely-there — scrims and tooltips.</p><span aria-hidden class="liquid-glass__specular"></span></section><section class="shitsuke__card liquid-glass__panel"><h3>regular</h3><p>Default control surface.</p><span aria-hidden class="liquid-glass__specular"></span></section><section class="shitsuke__card liquid-glass__panel liquid-glass__panel--thick"><h3>thick</h3><p>Toolbars/sheets over busy content.</p><span aria-hidden class="liquid-glass__specular"></span></section></div></section><section class="demo-section"><h2>Elevation</h2><div class="demo-row"><section class="shitsuke__card liquid-glass__panel liquid-glass__panel--flat"><p>flat</p><span aria-hidden class="liquid-glass__specular"></span></section><section class="shitsuke__card liquid-glass__panel"><p>raised</p><span aria-hidden class="liquid-glass__specular"></span></section><section class="shitsuke__card liquid-glass__panel liquid-glass__panel--overlay"><p>overlay</p><span aria-hidden class="liquid-glass__specular"></span></section><section class="shitsuke__card liquid-glass__panel liquid-glass__panel--floating"><p>floating</p><span aria-hidden class="liquid-glass__specular"></span></section></div></section><section class="demo-section"><h2>Buttons</h2><div class="demo-row"><button class="shitsuke__button liquid-glass__button" type="button" data-act="continue">Continue<span aria-hidden class="liquid-glass__specular"></span></button><button class="shitsuke__button liquid-glass__button" type="button" disabled>Disabled<span aria-hidden class="liquid-glass__specular"></span></button><button class="shitsuke__button liquid-glass__icon-button" type="button">♥<span aria-hidden class="liquid-glass__specular"></span></button></div></section><section class="demo-section"><h2>Sheet</h2><div class="demo-sheet-wrap"><div class="liquid-glass__scrim"></div><section role="dialog" aria-modal aria-label="Share" class="liquid-glass__sheet"><span aria-hidden class="liquid-glass__specular"></span><h3>Share</h3><p>Bottom-sheet surface — thick material, floating elevation.</p><button class="shitsuke__button liquid-glass__button" type="button" data-act="dismiss">Done<span aria-hidden class="liquid-glass__specular"></span></button></section></div></section><section class="demo-section"><h2>Dark</h2><div class="demo-dark"><div class="demo-row"><section class="shitsuke__card liquid-glass__panel liquid-glass__panel--thick"><p>thick / dark</p><span aria-hidden class="liquid-glass__specular"></span></section><header class="shitsuke__toolbar liquid-glass__toolbar"><nav><button class="shitsuke__button liquid-glass__icon-button" type="button">☰<span aria-hidden class="liquid-glass__specular"></span></button><span class="liquid-glass__badge">3</span></nav><span aria-hidden class="liquid-glass__specular"></span></header><button class="shitsuke__button liquid-glass__button" type="button">Continue<span aria-hidden class="liquid-glass__specular"></span></button></div></div></section><footer class="demo-footer">kotoba-lang/liquid-glass-ui · ADR-2607011900</footer></div></body></html>

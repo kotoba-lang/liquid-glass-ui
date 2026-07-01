@@ -14,13 +14,19 @@ CSS-string value or nested map of CSS props), but with glass-specific groups:
  :liquid-glass/elevation   {<level>   {:shadow ...}}
  :liquid-glass/specular    {<part>    {...}}
  :liquid-glass/radius      {<size>    <css-length>}
- :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}}
+ :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
+ :liquid-glass/accent      {:tint ... :tint-strong ...}}
 ```
 
 - `default-tokens` — v1 **light-scheme** material. Three surface variants:
   `:clear` (barely-there — scrims/tooltips), `:regular` (default control
   surface), `:thick` (toolbars/sheets over busy content). Four elevation
-  levels: `:flat` / `:raised` / `:overlay` / `:floating`.
+  levels: `:flat` / `:raised` / `:overlay` / `:floating`. `:accent` is the one
+  non-material color token — a translucent tint used for "on/checked/filled"
+  states (toggle-on, checkbox/radio-checked, slider/progress fill) so those
+  states still read as glass rather than a flat swatch. Same value in light
+  and dark (not in `dark-tokens` — override it yourself if a themed consumer
+  needs a different accent per scheme).
 - `dark-tokens` — a **partial** override map (only `:surface` tint/border and
   `:specular` opacity — the entries that actually change when the content
   behind the glass goes dark; blur/saturate/radius/motion are scheme-independent
@@ -63,22 +69,74 @@ Pure-hiccup glass primitives (`.cljc`, no reagent import — same dual-render
 contract as shitsuke). liquid-glass-ui owns **no** interaction/state logic:
 components either wrap the matching `shitsuke.components` fn (keeping its
 exact `act`/opts contract) or, where shitsuke has no equivalent, are a small
-hiccup literal following the same `data-act` convention.
+hiccup literal following the same `data-act` convention. Coverage targets the
+practical subset of SwiftUI's control catalog a glass DOM/CSS skin can
+actually express — see "Explicitly out of scope" below for what isn't here
+and why.
+
+**Structural / navigation**
+
+| fn | based on | shape |
+|---|---|---|
+| `panel` | `shitsuke.components/card` | `(body opts?)` — `:surface` (`:clear`\|`:regular`\|`:thick`), `:elevation` (`:flat`\|`:raised`\|`:overlay`\|`:floating`) |
+| `toolbar` | `shitsuke.components/toolbar` | `(actions opts?)` — floating action bar |
+| `nav-bar` | — | `(title opts?)` — `:leading`/`:trailing` (hiccup), page-header bar |
+| `tab-bar` | (shitsuke `mode-tabs` shape, reimplemented glass-only) | `(tabs current opts?)` — `tabs` = `[ [id label] … ]`; doubles as a SwiftUI `Picker(.segmented)` |
+| `sheet` | — | `(body opts?)` — `:label`, bottom-anchored modal surface |
+| `alert` | — | `(body opts?)` — `:label`, centered modal dialog (distinct from `sheet`) |
+| `menu` | — | `(items opts?)` — `items` = `[{:label :act :disabled?} …]`, popover action list |
+| `scrim` | — | `(opts?)` — full-viewport dismiss backdrop for `sheet`/`alert` |
+| `list-view` / `list-row` | — | `(rows opts?)` / `(content opts?)` — `:surface`, row `:act`/`:trailing` |
+
+**Controls**
 
 | fn | based on | shape |
 |---|---|---|
 | `button` / `icon-button` | `shitsuke.components/button` / `icon-button` | same opts (`:act`, `:disabled`, `:title`, `:type`, `:class`) |
-| `toolbar` | `shitsuke.components/toolbar` | `(actions opts?)` |
-| `tab-bar` | (shitsuke `mode-tabs` shape, reimplemented glass-only) | `(tabs current opts?)` — `tabs` = `[ [id label] … ]` |
-| `panel` | `shitsuke.components/card` | `(body opts?)` — `:surface` (`:clear`\|`:regular`\|`:thick`), `:elevation` (`:flat`\|`:raised`\|`:overlay`\|`:floating`) |
-| `sheet` | — (no shitsuke equivalent) | `(body opts?)` — `:label` (aria-label), bottom-sheet/modal surface |
-| `scrim` | — (no shitsuke equivalent) | `(opts?)` — full-viewport dismiss backdrop, `:act` |
-| `badge` | — (no shitsuke equivalent) | `(label opts?)` — small pill counter |
+| `text-field` / `text-area` | `shitsuke.components/input` / `textarea` | same opts, wrapped in a glass field |
+| `search-field` | (text-field + leading glyph) | same opts as `text-field` |
+| `menu-select` | `shitsuke.components/select` | `(options opts?)` — same opts as shitsuke `select` |
+| `toggle` | — | `(opts?)` — `:checked`, `:on-change`/`:act`, `:disabled` (native `<input type=checkbox>`, glass track+thumb sibling) |
+| `checkbox` / `radio` | — | `(label? opts?)` — `radio` groups via `:group` (same-named native `name`) |
+| `slider` | — | `(opts?)` — native `<input type=range>`, glass track+thumb via vendor pseudo-elements |
+| `stepper` | built from `icon-button` | `(value opts?)` — `:dec-act`/`:inc-act` |
 
-Every component appends a `liquid-glass__specular` marker span as its last
-child (`display:none` in v1 — the actual sheen is the CSS `::before` overlay).
-It exists purely as a stable hook for future enhancement (see below); it is
-not required for the current visual and removing/ignoring it changes nothing.
+**Feedback / content**
+
+| fn | based on | shape |
+|---|---|---|
+| `progress-bar` | — | `(value opts?)` — `:max` (default 100), determinate linear fill |
+| `progress-circle` | — | `(opts?)` — indeterminate spinner |
+| `badge` | — | `(label opts?)` — small pill counter |
+| `label` | — | `(icon text opts?)` — SwiftUI `Label`-shaped icon+text row |
+| `avatar` | — | `(content opts?)` — `:src`/`:alt` for an image, else initials/hiccup |
+| `divider` | — | `()` — hairline `<hr>` |
+| `tooltip` | — | `(text opts?)` — positioning is the consumer's responsibility |
+
+Every component whose top-level element *is* the glass surface (`panel`,
+`button`, `toolbar`, `sheet`, `text-field`, `menu-select`, `nav-bar`, `alert`,
+`menu`, `list-view`, `stepper`, …) appends a `liquid-glass__specular` marker
+span as its last child (`display:none` in v1 — the actual sheen is the CSS
+`::before` overlay). It exists purely as a stable hook for future enhancement
+(see below); it is not required for the current visual and
+removing/ignoring it changes nothing. Compound controls whose glass surface
+is a small *nested* box (`toggle`/`checkbox`/`radio` — the surface is the
+track/box `<span>` inside a `<label>`) skip the marker span; see the
+`liquid-glass.components` namespace docstring for why.
+
+### Explicitly out of scope
+
+Native-OS-only pickers that a CSS/DOM glass skin cannot meaningfully re-skin
+without either losing platform-native affordances or requiring a JS calendar/
+color-grid widget (real scope creep for a style layer, not a control layer):
+`DatePicker`, `ColorPicker`. Also out: `Gauge` (a `progress-circle` variant —
+add when a consumer needs it), `OutlineGroup`/`DisclosureGroup` (nested
+tree disclosure — no current consumer), `ShareLink` (OS share-sheet
+integration, platform-specific). Positioning logic for `menu`/`tooltip`
+(anchor-to-trigger, viewport-edge flipping) is deliberately left to the
+consumer — it needs either JS or CSS anchor-positioning, neither of which
+this repo's "portable `.cljc`, zero deps" contract can own without picking a
+specific runtime.
 
 ## Styling contract
 

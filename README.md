@@ -14,20 +14,28 @@ extend) `shitsuke.components` with glass classes and a specular-highlight
 decoration.
 
 ```text
-liquid-glass-ui = material tokens (blur/saturate/tint/elevation/specular/radius/motion)
+liquid-glass-ui = material tokens (blur/saturate/tint/elevation/specular/radius/motion/accent)
                   + style (CSS vars + literal component CSS, portable, no build step)
-                  + components (panel/button/icon-button/toolbar/tab-bar/sheet/scrim/badge)
+                  + 26 components: panel/toolbar/nav-bar/tab-bar/sheet/alert/menu/scrim/list
+                    + button/icon-button/text-field/text-area/search-field/menu-select/
+                      toggle/checkbox/radio/slider/stepper
+                    + progress-bar/progress-circle/badge/label/avatar/divider/tooltip
                   on top of shitsuke (tokens/hiccup/style/re-frame/components)
 ```
+
+Component coverage targets the practical subset of SwiftUI's control catalog
+a glass DOM/CSS skin can actually express — see `docs/design.md` for the full
+per-component table and what's explicitly out of scope (DatePicker/ColorPicker
+and friends — native-OS-only widgets a CSS skin can't meaningfully re-skin).
 
 ## Boundaries
 
 | layer | role |
 |---|---|
-| `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
+| `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion` `:accent`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
 | `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-css` (Tier B literal glass rules — backdrop-filter, specular overlay, elevation shadow, press/hover motion, reduced-motion + no-backdrop-filter fallback) |
-| `liquid-glass.components` | pure-hiccup glass primitives: `panel` / `button` / `icon-button` / `toolbar` / `tab-bar` / `sheet` / `scrim` / `badge` |
-| shitsuke (dep) | dual-render contract, `act` interaction convention, `button`/`icon-button`/`toolbar`/`card` primitives that liquid-glass-ui wraps |
+| `liquid-glass.components` | 26 pure-hiccup glass primitives — see `docs/design.md` for the full table |
+| shitsuke (dep) | dual-render contract, `act` interaction convention, `button`/`icon-button`/`toolbar`/`card`/`input`/`textarea`/`select` primitives that liquid-glass-ui wraps |
 
 ## Why a separate repo instead of adding it to shitsuke
 

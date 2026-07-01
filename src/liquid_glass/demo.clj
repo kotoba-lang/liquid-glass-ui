@@ -34,7 +34,22 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
 .demo-sheet-wrap .liquid-glass__sheet{color:#fff;}
 .demo-sheet-wrap .liquid-glass__sheet h3{margin:0 0 6px;}
 .demo-sheet-wrap .liquid-glass__sheet p{margin:0 0 16px;font-size:13px;opacity:.85;line-height:1.5;}
-.liquid-glass__button,.liquid-glass__icon-button{color:#fff;}
+.liquid-glass__button,.liquid-glass__icon-button,.liquid-glass__text-field,.liquid-glass__search-field,
+.liquid-glass__text-area,.liquid-glass__menu-select,.liquid-glass__stepper,.liquid-glass__checkbox,
+.liquid-glass__radio,.liquid-glass__toggle,.liquid-glass__nav-bar,.liquid-glass__alert,.liquid-glass__menu,
+.liquid-glass__list,.liquid-glass__label,.liquid-glass__avatar,.liquid-glass__tooltip{color:#fff;}
+.liquid-glass__text-field input::placeholder,.liquid-glass__search-field input::placeholder,
+.liquid-glass__text-area textarea::placeholder{color:rgba(255,255,255,.6);}
+.liquid-glass__menu-select select option{color:#1c1c1e;}
+.demo-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:start;}
+.demo-inline{display:flex;gap:20px;flex-wrap:wrap;align-items:center;}
+.demo-inline label{display:inline-flex;}
+.demo-progress-wrap{max-width:280px;display:flex;flex-direction:column;gap:16px;}
+.demo-overlay-wrap{position:relative;min-height:170px;}
+.demo-overlay-wrap .liquid-glass__scrim{position:absolute;border-radius:16px;}
+.demo-overlay-wrap .liquid-glass__alert{position:absolute;width:min(100%,320px);}
+.demo-overlay-wrap .liquid-glass__menu{position:absolute;top:0;left:0;}
+.demo-list-wrap{max-width:360px;}
 .demo-dark{background:#0b0b10;border-radius:20px;padding:28px;
      --liquid-glass-surface-clear-tint:rgba(18,18,22,0.30);--liquid-glass-surface-clear-border:rgba(255,255,255,0.08);
      --liquid-glass-surface-regular-tint:rgba(20,20,24,0.42);--liquid-glass-surface-regular-border:rgba(255,255,255,0.12);
@@ -73,6 +88,10 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
       (lg/toolbar [(lg/icon-button "☰") (lg/icon-button "🔍") (lg/badge "3") (lg/icon-button "⚙")])]
 
      [:section.demo-section
+      [:h2 "Nav bar"]
+      (lg/nav-bar "Settings" {:leading (lg/icon-button "‹") :trailing (lg/icon-button "＋")})]
+
+     [:section.demo-section
       [:h2 "Tab bar"]
       (lg/tab-bar [[:visual "Visual"] [:edn "EDN"] [:preview "Preview"]] :visual)]
 
@@ -99,6 +118,34 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
        (lg/icon-button "♥")]]
 
      [:section.demo-section
+      [:h2 "Form controls"]
+      [:div.demo-form-grid
+       (lg/text-field {:id "name" :placeholder "Name"})
+       (lg/search-field {:placeholder "Search"})
+       (lg/menu-select [["visual" "Visual"] ["edn" "EDN"] ["preview" "Preview"]] {:value "visual"})]
+      [:div.demo-inline {:style {:margin-top "16px"}}
+       (lg/toggle {:checked true :act :dark-mode})
+       (lg/checkbox "Remember me" {:checked true})
+       (lg/radio "Option A" {:group "demo-radio" :value "a" :checked true})
+       (lg/radio "Option B" {:group "demo-radio" :value "b"})]
+      [:div.demo-inline {:style {:margin-top "16px"}}
+       [:div {:style {:flex "1" :min-width "200px"}} (lg/slider {:value 60})]
+       (lg/stepper 3 {:dec-act :dec :inc-act :inc})]]
+
+     [:section.demo-section
+      [:h2 "Feedback"]
+      [:div.demo-inline
+       [:div.demo-progress-wrap
+        (lg/progress-bar 65)
+        (lg/progress-bar 30)]
+       (lg/progress-circle)
+       (lg/label "♥" "Favorites")
+       (lg/avatar "JK")
+       (lg/badge "12")]
+      (lg/divider)
+      [:p {:style {:opacity ".7" :font-size "13px" :margin "0"}} "A hairline divider sits above this line."]]
+
+     [:section.demo-section
       [:h2 "Sheet"]
       [:div.demo-sheet-wrap
        [:div.liquid-glass__scrim]
@@ -108,12 +155,41 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
                  {:label "Share"})]]
 
      [:section.demo-section
+      [:h2 "Alert"]
+      [:div.demo-overlay-wrap
+       (lg/scrim {:act :dismiss})
+       (lg/alert [[:h3 "Delete conversation?"]
+                  [:p {:style {:font-size "13px" :opacity ".85" :margin "8px 0 16px"}}
+                   "This action cannot be undone."]
+                  [:div.demo-inline {:style {:justify-content "center"}}
+                   (lg/button "Cancel" {:act :cancel})
+                   (lg/button "Delete" {:act :confirm-delete})]]
+                 {:label "Delete conversation?"})]]
+
+     [:section.demo-section
+      [:h2 "Menu"]
+      [:div.demo-overlay-wrap
+       (lg/menu [{:label "Rename" :act :rename}
+                 {:label "Duplicate" :act :duplicate}
+                 {:label "Delete" :act :delete :disabled true}])]]
+
+     [:section.demo-section
+      [:h2 "List"]
+      [:div.demo-list-wrap
+       (lg/list-view [(lg/list-row "Notifications" {:trailing "On" :act :open-notifications})
+                      (lg/list-row "Privacy" {:trailing "›" :act :open-privacy})
+                      (lg/list-row "About" {:trailing "›" :act :open-about})]
+                     {:surface :thick})]]
+
+     [:section.demo-section
       [:h2 "Dark"]
       [:div.demo-dark
        [:div.demo-row
         (lg/panel [[:p "thick / dark"]] {:surface :thick})
         (lg/toolbar [(lg/icon-button "☰") (lg/badge "3")])
-        (lg/button "Continue")]]]
+        (lg/button "Continue")
+        (lg/toggle {:checked true})
+        (lg/text-field {:placeholder "Name"})]]]
 
      [:footer.demo-footer "kotoba-lang/liquid-glass-ui · ADR-2607011900"]]]])
 

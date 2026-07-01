@@ -60,3 +60,136 @@
 
 (deftest badge-test
   (is (= "<span class=\"liquid-glass__badge\">3</span>" (html (c/badge "3")))))
+
+;; --- form controls -----------------------------------------------------
+
+(deftest text-field-test
+  (let [out (html (c/text-field {:id "n" :placeholder "Name"}))]
+    (is (str/includes? out "liquid-glass__text-field"))
+    (is (str/includes? out "shitsuke__input"))
+    (is (str/includes? out "placeholder=\"Name\""))
+    (is (str/includes? out "liquid-glass__specular"))))
+
+(deftest text-area-test
+  (is (str/includes? (html (c/text-area {:value "hi"})) "liquid-glass__text-area")))
+
+(deftest search-field-test
+  (let [out (html (c/search-field {:placeholder "Search"}))]
+    (is (str/includes? out "liquid-glass__search-field"))
+    (is (str/includes? out "liquid-glass__search-icon"))
+    (is (str/includes? out "type=\"search\""))))
+
+(deftest menu-select-test
+  (let [out (html (c/menu-select [["a" "A"] ["b" "B"]] {:value "a"}))]
+    (is (str/includes? out "liquid-glass__menu-select"))
+    (is (str/includes? out "shitsuke__select"))))
+
+(deftest toggle-test
+  (let [out (html (c/toggle {:checked true :act :dark-mode}))]
+    (is (str/includes? out "liquid-glass__toggle-track"))
+    (is (str/includes? out "liquid-glass__toggle-thumb"))
+    (is (str/includes? out "checked"))
+    (is (str/includes? out "data-act=\"dark-mode\""))))
+
+(deftest checkbox-test
+  (let [out (html (c/checkbox "Remember me" {:checked true}))]
+    (is (str/includes? out "liquid-glass__checkbox-box"))
+    (is (str/includes? out "Remember me"))
+    (is (str/includes? out "checked"))))
+
+(deftest radio-test
+  (let [out (html (c/radio "Option A" {:group "g" :value "a" :checked true}))]
+    (is (str/includes? out "liquid-glass__radio-box"))
+    (is (str/includes? out "name=\"g\""))
+    (is (str/includes? out "value=\"a\""))))
+
+(deftest slider-test
+  (let [out (html (c/slider {:value 40 :min 0 :max 100}))]
+    (is (str/includes? out "liquid-glass__slider"))
+    (is (str/includes? out "type=\"range\""))
+    (is (str/includes? out "value=\"40\""))))
+
+(deftest stepper-test
+  (let [out (html (c/stepper 3 {:dec-act :dec :inc-act :inc}))]
+    (is (str/includes? out "liquid-glass__stepper"))
+    (is (str/includes? out "liquid-glass__stepper-value\">3<"))
+    (is (str/includes? out "data-act=\"dec\""))
+    (is (str/includes? out "data-act=\"inc\""))))
+
+;; --- feedback ------------------------------------------------------------
+
+(deftest progress-bar-test
+  (let [out (html (c/progress-bar 40 {:max 100}))]
+    (is (str/includes? out "liquid-glass__progress-bar"))
+    (is (str/includes? out "width:40.0%"))
+    (is (str/includes? out "aria-valuenow=\"40\""))))
+
+(deftest progress-circle-test
+  (is (str/includes? (html (c/progress-circle)) "liquid-glass__progress-circle")))
+
+(deftest divider-test
+  (is (= "<hr class=\"liquid-glass__divider\">" (html (c/divider)))))
+
+(deftest label-test
+  (let [out (html (c/label "♥" "Favorites"))]
+    (is (str/includes? out "liquid-glass__label-icon"))
+    (is (str/includes? out "Favorites"))))
+
+(deftest avatar-test
+  (is (= "<span class=\"liquid-glass__avatar\">JK</span>" (html (c/avatar "JK"))))
+  (testing "src renders an img"
+    (is (str/includes? (html (c/avatar "JK" {:src "a.png" :alt "Jun"})) "<img src=\"a.png\" alt=\"Jun\">"))))
+
+;; --- navigation / overlay --------------------------------------------------
+
+(deftest nav-bar-test
+  (let [out (html (c/nav-bar "Settings" {:leading (c/icon-button "<") :trailing (c/icon-button "+")}))]
+    (is (str/includes? out "liquid-glass__nav-bar"))
+    (is (str/includes? out "liquid-glass__nav-bar-title\">Settings<"))
+    (is (str/includes? out "liquid-glass__nav-bar-leading"))
+    (is (str/includes? out "liquid-glass__nav-bar-trailing"))))
+
+(deftest alert-test
+  (let [out (html (c/alert [[:h3 "Delete?"]] {:label "Delete"}))]
+    (is (str/includes? out "liquid-glass__alert"))
+    (is (str/includes? out "role=\"alertdialog\""))
+    (is (str/includes? out "aria-label=\"Delete\""))))
+
+(deftest menu-test
+  (let [out (html (c/menu [{:label "Rename" :act :rename} {:label "Delete" :act :delete :disabled true}]))]
+    (is (str/includes? out "liquid-glass__menu\""))
+    (is (str/includes? out "liquid-glass__menu-item"))
+    (is (str/includes? out "data-act=\"rename\""))
+    (is (str/includes? out "disabled"))))
+
+(deftest tooltip-test
+  (is (= "<span role=\"tooltip\" class=\"liquid-glass__tooltip\">Hello</span>" (html (c/tooltip "Hello")))))
+
+(deftest list-view-test
+  (let [out (html (c/list-view [(c/list-row "Row 1") (c/list-row "Row 2" {:trailing ">" :act :open})]))]
+    (is (str/includes? out "liquid-glass__list\""))
+    (is (str/includes? out "liquid-glass__list-row"))
+    (is (str/includes? out "liquid-glass__list-row-trailing"))
+    (is (str/includes? out "data-act=\"open\"")))
+  (testing "surface variant modifier class"
+    (is (str/includes? (html (c/list-view [] {:surface :thick})) "liquid-glass__list--thick"))))
+
+;; --- cross-check: every rendered base class has a component-css rule ------
+
+(def ^:private every-component-sample
+  [(c/button "x") (c/icon-button "x") (c/toolbar [(c/button "x")])
+   (c/tab-bar [[:a "A"]] :a) (c/panel "x") (c/sheet "x") (c/scrim) (c/badge "1")
+   (c/text-field {}) (c/text-area {}) (c/search-field {}) (c/menu-select [["a" "A"]] {})
+   (c/toggle) (c/checkbox "x") (c/radio "x") (c/slider) (c/stepper 1)
+   (c/progress-bar 1) (c/progress-circle) (c/divider) (c/label "x" "x") (c/avatar "x")
+   (c/nav-bar "x") (c/alert "x") (c/menu [{:label "x"}]) (c/tooltip "x")
+   (c/list-view [(c/list-row "x" {:trailing "x"})])])
+
+(deftest every-rendered-class-has-a-css-rule-test
+  (let [css (s/component-css)
+        rendered (str/join " " (map html every-component-sample))
+        base-classes (->> (re-seq #"liquid-glass__[\w-]+" rendered)
+                          (remove #(str/includes? % "--")) ;; modifier classes covered by panel/list-view tests
+                          distinct)]
+    (doseq [c base-classes]
+      (is (str/includes? css (str "." c)) (str "no component-css rule for " c)))))

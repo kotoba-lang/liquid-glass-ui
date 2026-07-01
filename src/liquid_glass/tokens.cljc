@@ -8,7 +8,8 @@
      :liquid-glass/elevation   {<level>   {:shadow ...}}
      :liquid-glass/specular    {<part>    {...}}
      :liquid-glass/radius      {<size>    <css-length>}
-     :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}}
+     :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
+     :liquid-glass/accent      {:tint ... :tint-strong ...}}
 
   `default-tokens` is the light-scheme material. `dark-tokens` is a *partial*
   override map (surface tint/border + specular opacity only — the values a
@@ -45,7 +46,10 @@
    {:sm "10px" :md "16px" :lg "24px" :pill "999px"}
    :liquid-glass/motion
    {:press  {:duration "120ms" :easing "cubic-bezier(.32,.72,0,1)"}
-    :settle {:duration "420ms" :easing "cubic-bezier(.22,1,.36,1)"}}})
+    :settle {:duration "420ms" :easing "cubic-bezier(.22,1,.36,1)"}}
+   :liquid-glass/accent
+   {:tint        "rgba(10,132,255,0.55)"
+    :tint-strong "rgba(10,132,255,0.85)"}})
 
 (def dark-tokens
   "Partial override applied inside `@media (prefers-color-scheme: dark)`. Only

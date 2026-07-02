@@ -319,7 +319,13 @@
   ;; liquid-glass.components/gauge) — no CSS custom-property trick needed,
   ;; so it works identically across every reagent/SSR target.
   [[".liquid-glass__gauge"
+    ;; Not part of glass-surface-components (its ::before is the inner disc,
+    ;; not the shared specular overlay), so it must establish its own
+    ;; containing block — without position:relative the absolutely-positioned
+    ;; ::before resolves against the viewport and renders as a page-sized
+    ;; blurred circle.
     (merge {:display "inline-flex" :align-items "center" :justify-content "center"
+            :position "relative" :isolation "isolate"
             :width "56px" :height "56px" :border-radius "50%"}
            (glass-shadow-decls :raised))]
    [".liquid-glass__gauge::before"

@@ -22,7 +22,12 @@
       (is (str/includes? css "var(--liquid-glass-surface-regular-tint)")))
     (testing "no-backdrop-filter fallback and reduced-motion guard are present"
       (is (str/includes? css "@supports not (backdrop-filter"))
-      (is (str/includes? css "@media (prefers-reduced-motion: reduce)")))))
+      (is (str/includes? css "@media (prefers-reduced-motion: reduce)")))
+    (testing "the :liquid-glass/specular :rim tokens are actually wired into a rule (not orphaned)"
+      (is (str/includes? css "var(--liquid-glass-specular-rim-top-opacity)"))
+      (is (str/includes? css "var(--liquid-glass-specular-rim-bottom-opacity)")))
+    (testing "backdrop-filter includes a brightness lift, not just blur+saturate"
+      (is (str/includes? css "brightness(1.05)")))))
 
 (deftest inline-style-test
   (is (str/starts-with? (s/inline-style) "<style>"))

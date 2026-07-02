@@ -360,3 +360,51 @@
      [:div {:class (cls (s/class-name :list-row) class) :data-act (some-> act act->str)}
       [:div {:class (s/class-name :list-row-content)} content]
       (when trailing [:div {:class (s/class-name :list-row-trailing)} trailing])])))
+
+(defn chip
+  "Glass filter/tag chip (no shitsuke equivalent). `label` is string/hiccup.
+  opts: :act (the chip's own click), :on-remove-act (portable act for a
+  dismiss × button — omit to render without one), :class."
+  ([label] (chip label nil))
+  ([label opts]
+   (let [{:keys [act on-remove-act class]} opts]
+     [:span {:class (cls (s/class-name :chip) class) :data-act (some-> act act->str)}
+      (specular)
+      label
+      (when on-remove-act
+        [:button {:type "button" :class (s/class-name :chip-remove)
+                  :aria-label "Remove" :data-act (act->str on-remove-act)}
+         "×"])])))
+
+(defn disclosure
+  "Glass collapsible group (no shitsuke equivalent; SwiftUI `DisclosureGroup`-
+  shaped). Built on native `<details>`/`<summary>` — open/close needs no JS.
+  `summary` is the always-visible header (string/hiccup); `body` is the
+  collapsible content. opts: :open? (default closed), :class."
+  ([summary body] (disclosure summary body nil))
+  ([summary body opts]
+   (let [{:keys [open? class]} opts]
+     [:details {:open (when open? true) :class (cls (s/class-name :disclosure) class)}
+      (specular)
+      [:summary {:class (s/class-name :disclosure-summary)}
+       summary
+       [:span {:aria-hidden true :class (s/class-name :disclosure-chevron)} "⌄"]]
+      [:div {:class (s/class-name :disclosure-body)} body]])))
+
+(defn gauge
+  "Glass circular gauge (no shitsuke equivalent; SwiftUI `Gauge`-shaped —
+  determinate, unlike `progress-circle`'s indeterminate spinner). `value`/
+  opts :max (default 100) set the ring fill via an inline conic-gradient
+  (computed once per render — no CSS custom-property trick needed, so it
+  works identically across every reagent/SSR target). opts: :max, :label
+  (shown inside the ring; default \"<pct>%\"), :class."
+  ([value] (gauge value nil))
+  ([value opts]
+   (let [{:keys [max label class]} opts
+         max (or max 100)
+         pct (-> (double value) (/ (double max)) (clojure.core/max 0.0) (clojure.core/min 1.0) (* 100))
+         ring (str "conic-gradient(var(--liquid-glass-accent-tint-strong) 0 " pct "%,"
+                   "var(--liquid-glass-surface-regular-tint) " pct "% 100%)")]
+     [:span {:class (cls (s/class-name :gauge) class) :style {:background ring}
+             :role "meter" :aria-valuenow value :aria-valuemin 0 :aria-valuemax max}
+      [:span {:class (s/class-name :gauge-label)} (or label (str (int pct) "%"))]])))

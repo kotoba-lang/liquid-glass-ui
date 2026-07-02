@@ -37,7 +37,8 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
 .liquid-glass__button,.liquid-glass__icon-button,.liquid-glass__text-field,.liquid-glass__search-field,
 .liquid-glass__text-area,.liquid-glass__menu-select,.liquid-glass__stepper,.liquid-glass__checkbox,
 .liquid-glass__radio,.liquid-glass__toggle,.liquid-glass__nav-bar,.liquid-glass__alert,.liquid-glass__menu,
-.liquid-glass__list,.liquid-glass__label,.liquid-glass__avatar,.liquid-glass__tooltip{color:#fff;}
+.liquid-glass__list,.liquid-glass__label,.liquid-glass__avatar,.liquid-glass__tooltip,.liquid-glass__chip,
+.liquid-glass__disclosure,.liquid-glass__gauge{color:#fff;}
 .liquid-glass__text-field input::placeholder,.liquid-glass__search-field input::placeholder,
 .liquid-glass__text-area textarea::placeholder{color:rgba(255,255,255,.6);}
 .liquid-glass__menu-select select option{color:#1c1c1e;}
@@ -139,11 +140,26 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
         (lg/progress-bar 65)
         (lg/progress-bar 30)]
        (lg/progress-circle)
+       (lg/gauge 72)
        (lg/label "♥" "Favorites")
        (lg/avatar "JK")
        (lg/badge "12")]
       (lg/divider)
       [:p {:style {:opacity ".7" :font-size "13px" :margin "0"}} "A hairline divider sits above this line."]]
+
+     [:section.demo-section
+      [:h2 "Chips"]
+      [:div.demo-inline
+       (lg/chip "Vegetarian" {:on-remove-act :remove-veg})
+       (lg/chip "Gluten-free" {:on-remove-act :remove-gf})
+       (lg/chip "Open now")]]
+
+     [:section.demo-section
+      [:h2 "Disclosure"]
+      (lg/disclosure "Advanced settings"
+                      [[:p {:style {:font-size "13px" :opacity ".85" :margin "0"}}
+                        "Collapsible content — native <details>/<summary>, no JS needed for open/close."]]
+                      {:open? true})]
 
      [:section.demo-section
       [:h2 "Sheet"]

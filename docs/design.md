@@ -58,6 +58,22 @@ Two-tier, same split as `shitsuke.style`:
   apply. Includes a `prefers-reduced-motion: reduce` guard and an
   `@supports not (backdrop-filter: blur(1px))` opaque-background fallback for
   engines without backdrop-filter.
+
+  Every glass surface gets the same three ingredients, built by three private
+  helpers (`backdrop`/`glass-bg`/`glass-shadow`) instead of ~15 hand-typed
+  copies, so a component can't end up with only some of them:
+  1. **backdrop-filter**: `blur` + `saturate` from its surface tier's tokens,
+     plus a fixed `brightness(1.05)` lift — a flat blur reads as smudged
+     glass, not lit glass.
+  2. **specular overlay** (shared `::before`): a soft `radial-gradient`
+     highlight anchored near the top-left, not a flat linear sheen — reads as
+     a light source catching a curved surface.
+  3. **rim light** (folded into every `box-shadow`, alongside the elevation
+     shadow): a bright 1px inset line on the top edge, a much dimmer one on
+     the bottom (the `:liquid-glass/specular :rim` token — asymmetric on
+     purpose, light from above). This is the detail that turns a flat
+     translucent rectangle into something that reads as an actual lit glass
+     edge.
 - `(class-name component)` → `"liquid-glass__<component>"` (also accepts
   `"panel--thick"`-shaped modifier names).
 - `(inline-style css?)` / `(inline-style-hiccup css?)` — `<style>` wrapper for
@@ -87,6 +103,7 @@ and why.
 | `menu` | — | `(items opts?)` — `items` = `[{:label :act :disabled?} …]`, popover action list |
 | `scrim` | — | `(opts?)` — full-viewport dismiss backdrop for `sheet`/`alert` |
 | `list-view` / `list-row` | — | `(rows opts?)` / `(content opts?)` — `:surface`, row `:act`/`:trailing` |
+| `disclosure` | — | `(summary body opts?)` — native `<details>`/`<summary>` (SwiftUI `DisclosureGroup`), no JS needed |
 
 **Controls**
 
@@ -107,7 +124,9 @@ and why.
 |---|---|---|
 | `progress-bar` | — | `(value opts?)` — `:max` (default 100), determinate linear fill |
 | `progress-circle` | — | `(opts?)` — indeterminate spinner |
+| `gauge` | — | `(value opts?)` — `:max` (default 100), determinate ring (SwiftUI `Gauge`) via an inline conic-gradient |
 | `badge` | — | `(label opts?)` — small pill counter |
+| `chip` | — | `(label opts?)` — `:act`, `:on-remove-act` (dismiss ×) — filter/tag chip |
 | `label` | — | `(icon text opts?)` — SwiftUI `Label`-shaped icon+text row |
 | `avatar` | — | `(content opts?)` — `:src`/`:alt` for an image, else initials/hiccup |
 | `divider` | — | `()` — hairline `<hr>` |
@@ -115,7 +134,7 @@ and why.
 
 Every component whose top-level element *is* the glass surface (`panel`,
 `button`, `toolbar`, `sheet`, `text-field`, `menu-select`, `nav-bar`, `alert`,
-`menu`, `list-view`, `stepper`, …) appends a `liquid-glass__specular` marker
+`menu`, `list-view`, `stepper`, `chip`, `disclosure`, …) appends a `liquid-glass__specular` marker
 span as its last child (`display:none` in v1 — the actual sheen is the CSS
 `::before` overlay). It exists purely as a stable hook for future enhancement
 (see below); it is not required for the current visual and
@@ -129,14 +148,14 @@ track/box `<span>` inside a `<label>`) skip the marker span; see the
 Native-OS-only pickers that a CSS/DOM glass skin cannot meaningfully re-skin
 without either losing platform-native affordances or requiring a JS calendar/
 color-grid widget (real scope creep for a style layer, not a control layer):
-`DatePicker`, `ColorPicker`. Also out: `Gauge` (a `progress-circle` variant —
-add when a consumer needs it), `OutlineGroup`/`DisclosureGroup` (nested
-tree disclosure — no current consumer), `ShareLink` (OS share-sheet
-integration, platform-specific). Positioning logic for `menu`/`tooltip`
-(anchor-to-trigger, viewport-edge flipping) is deliberately left to the
-consumer — it needs either JS or CSS anchor-positioning, neither of which
-this repo's "portable `.cljc`, zero deps" contract can own without picking a
-specific runtime.
+`DatePicker`, `ColorPicker`. Also out: `OutlineGroup` (nested multi-level tree
+disclosure — `disclosure` covers the single-level `DisclosureGroup` case; a
+tree needs recursive state a "portable, zero deps" component can't own),
+`ShareLink` (OS share-sheet integration, platform-specific). Positioning
+logic for `menu`/`tooltip` (anchor-to-trigger, viewport-edge flipping) is
+deliberately left to the consumer — it needs either JS or CSS
+anchor-positioning, neither of which this repo's "portable `.cljc`, zero
+deps" contract can own without picking a specific runtime.
 
 ## Styling contract
 

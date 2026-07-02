@@ -174,6 +174,32 @@
   (testing "surface variant modifier class"
     (is (str/includes? (html (c/list-view [] {:surface :thick})) "liquid-glass__list--thick"))))
 
+(deftest chip-test
+  (let [out (html (c/chip "Vegetarian" {:on-remove-act :remove-veg}))]
+    (is (str/includes? out "liquid-glass__chip\""))
+    (is (str/includes? out "liquid-glass__chip-remove"))
+    (is (str/includes? out "data-act=\"remove-veg\"")))
+  (testing "no on-remove-act means no remove button"
+    (is (not (str/includes? (html (c/chip "Vegetarian")) "chip-remove")))))
+
+(deftest disclosure-test
+  (let [out (html (c/disclosure "Advanced" [[:p "more"]] {:open? true}))]
+    (is (str/includes? out "liquid-glass__disclosure\""))
+    (is (str/includes? out "<details open"))
+    (is (str/includes? out "liquid-glass__disclosure-summary"))
+    (is (str/includes? out "liquid-glass__disclosure-chevron")))
+  (testing "closed by default"
+    (is (not (str/includes? (html (c/disclosure "Advanced" [[:p "more"]])) "<details open")))))
+
+(deftest gauge-test
+  (let [out (html (c/gauge 72))]
+    (is (str/includes? out "liquid-glass__gauge\""))
+    (is (str/includes? out "72.0%"))
+    (is (str/includes? out "72%"))
+    (is (str/includes? out "role=\"meter\"")))
+  (testing "custom label overrides the computed percentage text"
+    (is (str/includes? (html (c/gauge 30 {:label "30/100"})) "30/100"))))
+
 ;; --- cross-check: every rendered base class has a component-css rule ------
 
 (def ^:private every-component-sample
@@ -181,9 +207,10 @@
    (c/tab-bar [[:a "A"]] :a) (c/panel "x") (c/sheet "x") (c/scrim) (c/badge "1")
    (c/text-field {}) (c/text-area {}) (c/search-field {}) (c/menu-select [["a" "A"]] {})
    (c/toggle) (c/checkbox "x") (c/radio "x") (c/slider) (c/stepper 1)
-   (c/progress-bar 1) (c/progress-circle) (c/divider) (c/label "x" "x") (c/avatar "x")
+   (c/progress-bar 1) (c/progress-circle) (c/gauge 50) (c/divider) (c/label "x" "x") (c/avatar "x")
    (c/nav-bar "x") (c/alert "x") (c/menu [{:label "x"}]) (c/tooltip "x")
-   (c/list-view [(c/list-row "x" {:trailing "x"})])])
+   (c/list-view [(c/list-row "x" {:trailing "x"})])
+   (c/chip "x" {:on-remove-act :x}) (c/disclosure "x" [[:p "x"]])])
 
 (deftest every-rendered-class-has-a-css-rule-test
   (let [css (s/component-css)

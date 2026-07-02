@@ -264,11 +264,19 @@ morph: `:active` on buttons is now a squash —
 `scaleX(var(--…-press-scale-x)) scaleY(var(--…-press-scale-y))`
 (1.02/.95) instead of a flat `scale(.97)` — glass giving under a fingertip.
 
-### 3. Pointer-tracking specular (optional JS, `resources/liquid_glass/specular.js`)
+### 3. Pointer-tracking specular (optional JS, reference implementation)
 
 The enhancement the `liquid-glass__specular` span was reserved for ("a
-pointer/device-motion-driven highlight position" — Future work, below). A
-~70-line dependency-free classic script attaches **one** document-level,
+pointer/device-motion-driven highlight position" — Future work, below). This
+repo does not ship the script as a library export — a JS runtime dependency
+would break the "portable `.cljc`, zero deps" core, and the whole point of
+the progressive-enhancement contract below is that a consumer can write (or
+omit) their own — but `liquid-glass.demo/specular-script` (a `^:private` plain
+string constant, `src/liquid_glass/demo.clj`) is a working ~70-line
+dependency-free reference implementation, inlined into the GitHub Pages
+showcase the same way `inline-style` inlines the stylesheet. Copy it, or
+write an equivalent against the same contract. It attaches **one**
+document-level,
 rAF-throttled `pointermove` listener; for the glass element under the pointer
 (`closest(selector)` — the selector comes from the script tag's
 `data-lg-selector` attribute, emitted by `liquid-glass.style/specular-selector`
@@ -284,9 +292,7 @@ tokens, dimmed in dark scheme), `pointer-events:none`, transitioning only
 `opacity`. Without the script **nothing** changes — the span keeps its
 `display:none` default. Reduced motion is respected twice: the script refuses
 to attach when `(prefers-reduced-motion: reduce)` matches, and the CSS guard
-re-hides the highlight even if some other script added the class. The demo
-page inlines the script the same way it inlines the stylesheet
-(`liquid-glass.demo/specular-script`).
+re-hides the highlight even if some other script added the class.
 
 ### 4. SVG displacement lens (`.liquid-glass--lens` + `lens-filter-defs`)
 

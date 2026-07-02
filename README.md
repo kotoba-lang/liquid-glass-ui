@@ -31,6 +31,21 @@ a glass DOM/CSS skin can actually express — see `docs/design.md` for the full
 per-component table and what's explicitly out of scope (DatePicker/ColorPicker
 and friends — native-OS-only widgets a CSS skin can't meaningfully re-skin).
 
+Beyond the static material, four opt-in/progressive motion & dynamic-effect
+layers (all pure CSS or degrade to the static material with no JS, all
+disabled under `prefers-reduced-motion: reduce`): overlay enter/exit
+animations (`scrim`/`sheet`/`alert`/`menu`/`tooltip`, plus a
+`[data-state="closing"]` exit contract the caller drives), a generated
+damped-spring `linear()` settle + squash press-morph
+(`liquid-glass.tokens/spring-linear-easing`, upgrading past the baseline
+`cubic-bezier` under `@supports`), an optional pointer-tracking specular
+highlight (CSS contract + a reference JS enhancer, not a library dependency),
+and an SVG `feTurbulence`+`feDisplacementMap` displacement lens
+(`lens-filter-defs` + `.liquid-glass--lens`, upgrading under
+`@supports (backdrop-filter: url(...))` where the engine actually composites
+it). See `docs/design.md` § "Motion & dynamic effects" for the full
+per-layer breakdown and honest engine-support notes.
+
 ## Boundaries
 
 | layer | role |
@@ -84,7 +99,9 @@ clojure -M:local:test      # local ../shitsuke + ../css overrides
 ## Design
 
 See `docs/design.md` for the token/style/component API,
-`docs/adr/0001-liquid-glass-ui.md` for the original decision record, and
+`docs/adr/0001-liquid-glass-ui.md` for the original decision record,
 `docs/adr/0002-css-core-migration-and-ink-token.md` for the `css.core`
-migration + `:ink` token addition. Superproject-level decision:
+migration + `:ink` token addition, and
+`docs/adr/0003-motion-and-dynamic-effects.md` for the overlay-motion/spring/
+pointer-specular/displacement-lens layer. Superproject-level decision:
 `90-docs/adr/2607011900-kotoba-lang-liquid-glass-ui.md`.

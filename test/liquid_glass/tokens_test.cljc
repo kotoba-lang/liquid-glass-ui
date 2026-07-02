@@ -28,10 +28,54 @@
     (let [css (t/css-variables {:liquid-glass/radius {:md "20px"}})]
       (is (str/includes? css "--liquid-glass-radius-md: 20px;")))))
 
+(deftest spring-linear-easing-test
+  (let [easing (t/spring-linear-easing)
+        stops (-> easing
+                  (str/replace #"^linear\(" "")
+                  (str/replace #"\)$" "")
+                  (str/split #","))
+        vals (map #?(:clj #(Double/parseDouble %) :cljs js/parseFloat) stops)]
+    (is (str/starts-with? easing "linear("))
+    (is (str/ends-with? easing ")"))
+    (testing "12-16 point damped-spring curve: starts at 0, ends exactly at 1"
+      (is (= 16 (count stops)))
+      (is (zero? (first vals)))
+      (is (= 1.0 (last vals))))
+    (testing "it is a spring: at least one stop overshoots past 1"
+      (is (some #(> % 1.05) vals)))
+    (testing "custom damping changes the curve (it's a generator, not a constant)"
+      (is (not= easing (t/spring-linear-easing {:zeta 0.9}))))))
+
+(deftest motion-token-vars-test
+  (let [css (t/css-variables)]
+    (testing "spring easing token carries the generated linear() literal"
+      (is (str/includes? css "--liquid-glass-motion-spring-easing: linear("))
+      (is (str/includes? css "--liquid-glass-motion-spring-duration: 500ms;")))
+    (testing "overlay enter/exit tokens"
+      (is (str/includes? css "--liquid-glass-motion-overlay-enter-duration: 300ms;"))
+      (is (str/includes? css "--liquid-glass-motion-overlay-enter-distance: 12px;"))
+      (is (str/includes? css "--liquid-glass-motion-overlay-enter-scale: .98;"))
+      (is (str/includes? css "--liquid-glass-motion-overlay-enter-scale-y: .9;"))
+      (is (str/includes? css "--liquid-glass-motion-overlay-exit-duration: 200ms;")))
+    (testing "press morph tokens"
+      (is (str/includes? css "--liquid-glass-motion-press-scale-x: 1.02;"))
+      (is (str/includes? css "--liquid-glass-motion-press-scale-y: .95;")))
+    (testing "pointer specular tokens"
+      (is (str/includes? css "--liquid-glass-specular-pointer-opacity: 0.5;"))
+      (is (str/includes? css "--liquid-glass-specular-pointer-size: 160px;")))
+    (testing "lens tokens"
+      (is (str/includes? css "--liquid-glass-lens-frequency: 0.008;"))
+      (is (str/includes? css "--liquid-glass-lens-scale: 8;"))
+      (is (str/includes? css "--liquid-glass-lens-octaves: 2;")))))
+
 (deftest dark-css-variables-test
   (let [css (t/dark-css-variables)]
     (is (str/includes? css "@media (prefers-color-scheme: dark)"))
     (is (str/includes? css "--liquid-glass-surface-regular-tint: rgba(20,20,24,0.42);"))
     (is (str/includes? css "--liquid-glass-ink-default: #f5f5f7;"))
+    (testing "pointer highlight dims in dark scheme"
+      (is (str/includes? css "--liquid-glass-specular-pointer-opacity: 0.28;")))
     (testing "scheme-independent groups are not redeclared in the dark block"
-      (is (not (str/includes? css "--liquid-glass-radius-"))))))
+      (is (not (str/includes? css "--liquid-glass-radius-")))
+      (is (not (str/includes? css "--liquid-glass-motion-")))
+      (is (not (str/includes? css "--liquid-glass-lens-"))))))

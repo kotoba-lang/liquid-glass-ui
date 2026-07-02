@@ -125,9 +125,34 @@
         ["tab-bar" "toggle" "checkbox" "radio" "slider" "progress-bar"
          "progress-circle" "gauge" "divider" "label" "avatar" "tooltip"]))
 
+;; Components that actually append the `liquid-glass__specular` marker span
+;; as a direct child (see liquid-glass.components — the compound controls
+;; whose glass surface is a nested track/box skip it, and badge/scrim/tooltip/
+;; gauge never carry it).
+(def ^:private specular-host-components
+  ["panel" "button" "icon-button" "toolbar" "tab-bar" "sheet" "text-field"
+   "text-area" "search-field" "menu-select" "stepper" "nav-bar" "alert"
+   "menu" "list" "chip" "disclosure"])
+
+;; Overlay/presence components that get enter animations on insertion and the
+;; [data-state="closing"] exit contract (see overlay-motion-rules).
+(def ^:private overlay-components
+  ["scrim" "sheet" "alert" "menu" "tooltip"])
+
 (defn- sel
   ([names] (sel names ""))
   ([names suffix] (str/join "," (map #(str "." (class-name %) suffix) names))))
+
+(defn specular-selector
+  "CSS selector list matching every component root that carries a
+  `liquid-glass__specular` marker span — the hosts the optional
+  pointer-tracking enhancer (resources/liquid_glass/specular.js) targets.
+  Public so an embedder can hand it to the script via its `data-lg-selector`
+  attribute (the script also derives the same list from the marker spans in
+  the document when the attribute is absent) — one source of truth, no
+  hand-copied class list in JS."
+  []
+  (sel specular-host-components))
 
 (defn- base-rules []
   [[(sel glass-surface-components)
@@ -160,8 +185,13 @@
    [".liquid-glass__icon-button" {:padding ".55em" :aspect-ratio "1"}]
    [".liquid-glass__button:hover,.liquid-glass__icon-button:hover"
     (merge {:transform "translateY(-1px)" :filter "brightness(1.08)"} (glass-shadow-decls :overlay))]
+   ;; Press morph: a subtle squash (wider + shorter) rather than a flat
+   ;; uniform scale — reads as glass giving under a fingertip. Values are the
+   ;; :liquid-glass/motion :press :scale-x/:scale-y tokens.
    [".liquid-glass__button:active,.liquid-glass__icon-button:active"
-    {:transform "translateY(0) scale(.97)" :filter "brightness(.97)"}]
+    {:transform (str "translateY(0) scaleX(var(--liquid-glass-motion-press-scale-x))"
+                     " scaleY(var(--liquid-glass-motion-press-scale-y))")
+     :filter "brightness(.97)"}]
    [".liquid-glass__button:disabled,.liquid-glass__icon-button:disabled"
     {:opacity ".45" :cursor "not-allowed" :transform "none" :filter "none"}]])
 
@@ -418,6 +448,66 @@
    [".liquid-glass__disclosure[open] .liquid-glass__disclosure-chevron" {:transform "rotate(180deg)"}]
    [".liquid-glass__disclosure-body" {:padding "0 1em 1em"}]])
 
+(defn- overlay-motion-rules []
+  ;; Overlay presence transitions, pure CSS (SSR-friendly): the *enter*
+  ;; animation runs when the element first paints (insertion into the DOM, or
+  ;; e.g. a <details> opening), so no JS is needed to show it. *Exit* is the
+  ;; [data-state=\"closing\"] attribute contract (docs/design.md "Motion &
+  ;; dynamic effects"): the caller — who owns open/close state, this library
+  ;; owns none — sets data-state=\"closing\", waits for `animationend`, then
+  ;; removes the element. `both` fill keeps the exit end-state (opacity 0)
+  ;; until removal. Durations/easings/offsets are the
+  ;; :liquid-glass/motion :overlay-enter/:overlay-exit tokens.
+  (let [enter (fn [kf] (str kf " var(--liquid-glass-motion-overlay-enter-duration)"
+                            " var(--liquid-glass-motion-overlay-enter-easing) both"))
+        exit  (fn [kf] (str kf " var(--liquid-glass-motion-overlay-exit-duration)"
+                            " var(--liquid-glass-motion-overlay-exit-easing) both"))]
+    [[".liquid-glass__scrim" {:animation (enter "liquid-glass-scrim-enter")}]
+     [".liquid-glass__scrim[data-state=\"closing\"]" {:animation (exit "liquid-glass-scrim-exit")}]
+     [".liquid-glass__sheet" {:animation (enter "liquid-glass-sheet-enter")}]
+     [".liquid-glass__sheet[data-state=\"closing\"]" {:animation (exit "liquid-glass-sheet-exit")}]
+     ;; alert's keyframes fold the base centering translate(-50%,-50%) into
+     ;; every frame — an animation's transform *replaces* the rule transform,
+     ;; so plain translateY keyframes would un-center it mid-flight.
+     [".liquid-glass__alert" {:animation (enter "liquid-glass-alert-enter")}]
+     [".liquid-glass__alert[data-state=\"closing\"]" {:animation (exit "liquid-glass-alert-exit")}]
+     [".liquid-glass__menu" {:transform-origin "top center"
+                             :animation (enter "liquid-glass-menu-enter")}]
+     [".liquid-glass__menu[data-state=\"closing\"]" {:animation (exit "liquid-glass-menu-exit")}]
+     [".liquid-glass__tooltip" {:animation (enter "liquid-glass-tooltip-enter")}]
+     [".liquid-glass__tooltip[data-state=\"closing\"]" {:animation (exit "liquid-glass-tooltip-exit")}]]))
+
+(defn- specular-pointer-rules []
+  ;; Pointer-tracking specular highlight on the `liquid-glass__specular`
+  ;; marker span — the seam docs/design.md reserved for "a pointer/device-
+  ;; motion-driven highlight position". Everything is gated behind the
+  ;; `.liquid-glass-js` class that resources/liquid_glass/specular.js adds to
+  ;; <html>: without the script the span keeps its display:none default and
+  ;; nothing changes. The script writes --liquid-glass-pointer-x/-y (0..1,
+  ;; relative to the host rect) and toggles [data-lg-pointer] on the hovered
+  ;; host; only opacity transitions (cheap — the gradient position updates
+  ;; per pointer frame without animation).
+  [[".liquid-glass-js .liquid-glass__specular"
+    {:display "block" :position "absolute" :inset "0" :border-radius "inherit"
+     :pointer-events "none" :opacity "0" :z-index "1"
+     :background (str "radial-gradient(var(--liquid-glass-specular-pointer-size) circle at "
+                      "calc(var(--liquid-glass-pointer-x,.5)*100%) "
+                      "calc(var(--liquid-glass-pointer-y,.5)*100%),"
+                      "rgba(255,255,255,var(--liquid-glass-specular-pointer-opacity)) 0%,"
+                      "rgba(255,255,255,0) 70%)")
+     :mix-blend-mode "overlay"
+     :transition "opacity var(--liquid-glass-motion-settle-duration) var(--liquid-glass-motion-settle-easing)"}]
+   [".liquid-glass-js [data-lg-pointer] > .liquid-glass__specular" {:opacity "1"}]])
+
+(defn- lens-rules []
+  ;; Baseline for the .liquid-glass--lens modifier: the plain regular-surface
+  ;; backdrop (blur+saturate+brightness), so the modifier is harmless on its
+  ;; own and on non-glass hosts. The actual displacement upgrade lives in
+  ;; lens-supports-css (@supports (backdrop-filter: url(#...))) — see
+  ;; docs/design.md for honest engine support (Chromium partial; Safari no →
+  ;; this fallback).
+  [[".liquid-glass--lens" (backdrop-decls :regular)]])
+
 (defn component-rules
   "The Tier B rule set as EDN data — a vector of `[selector decls-map]` pairs,
   the same shape `css.core/css`'s `:rules` consumes. Exposed (not just the
@@ -431,7 +521,34 @@
                [base-rules panel-rules button-rules toolbar-tabbar-rules sheet-scrim-badge-rules
                 form-field-rules toggle-rules checkbox-radio-rules slider-rules stepper-rules
                 progress-rules gauge-rules misc-rules nav-bar-rules alert-rules menu-rules
-                list-rules chip-rules disclosure-rules])))
+                list-rules chip-rules disclosure-rules
+                overlay-motion-rules specular-pointer-rules lens-rules])))
+
+(def ^:private motion-keyframes
+  "@keyframes for the overlay presence transitions (plus the spinner). Frame
+  offsets reference --liquid-glass-motion-overlay-enter-* custom properties —
+  custom properties are legal inside keyframes and resolve per element, so the
+  distances/scales stay tokens, not literals. Exit frames mirror enter (the
+  [data-state=\"closing\"] contract, see overlay-motion-rules)."
+  (let [sheet-out  (str "translateY(var(--liquid-glass-motion-overlay-enter-distance))"
+                        " scale(var(--liquid-glass-motion-overlay-enter-scale))")
+        sheet-in   "translateY(0) scale(1)"
+        alert-out  (str "translate(-50%,calc(-50% + var(--liquid-glass-motion-overlay-enter-distance)))"
+                        " scale(var(--liquid-glass-motion-overlay-enter-scale))")
+        alert-in   "translate(-50%,-50%) scale(1)"
+        menu-out   "scaleY(var(--liquid-glass-motion-overlay-enter-scale-y))"
+        menu-in    "scaleY(1)"]
+    {"liquid-glass-spin"          {100 {:transform "rotate(360deg)"}}
+     "liquid-glass-scrim-enter"   {0 {:opacity "0"} 100 {:opacity "1"}}
+     "liquid-glass-scrim-exit"    {0 {:opacity "1"} 100 {:opacity "0"}}
+     "liquid-glass-sheet-enter"   {0 {:opacity "0" :transform sheet-out} 100 {:opacity "1" :transform sheet-in}}
+     "liquid-glass-sheet-exit"    {0 {:opacity "1" :transform sheet-in} 100 {:opacity "0" :transform sheet-out}}
+     "liquid-glass-alert-enter"   {0 {:opacity "0" :transform alert-out} 100 {:opacity "1" :transform alert-in}}
+     "liquid-glass-alert-exit"    {0 {:opacity "1" :transform alert-in} 100 {:opacity "0" :transform alert-out}}
+     "liquid-glass-menu-enter"    {0 {:opacity "0" :transform menu-out} 100 {:opacity "1" :transform menu-in}}
+     "liquid-glass-menu-exit"     {0 {:opacity "1" :transform menu-in} 100 {:opacity "0" :transform menu-out}}
+     "liquid-glass-tooltip-enter" {0 {:opacity "0"} 100 {:opacity "1"}}
+     "liquid-glass-tooltip-exit"  {0 {:opacity "1"} 100 {:opacity "0"}}}))
 
 (defn- supports-fallback-css
   "@supports isn't a CSS *rule* in css.core's sense (it's an at-rule wrapping
@@ -448,25 +565,84 @@
                   {:background "rgba(255,255,255,.85)"})
        " }"))
 
+(defn- spring-supports-css
+  "Spring-flavored settle: engines that understand CSS linear() get the
+  generated damped-spring curve (`--liquid-glass-motion-spring-easing`, see
+  liquid-glass.tokens/spring-linear-easing) on the properties where an
+  overshoot reads as physical — button/icon-button transform settle (release
+  from the :active squash bounces once past rest), the toggle thumb slide and
+  the disclosure chevron flip. Default rules keep the cubic-bezier :settle /
+  :press easings; this block only *upgrades* — no linear(), no change."
+  []
+  (let [spring "transform var(--liquid-glass-motion-spring-duration) var(--liquid-glass-motion-spring-easing)"]
+    (str "@supports (transition-timing-function: linear(0, 1)) { "
+         (css/rule ".liquid-glass__button,.liquid-glass__icon-button"
+                   {:transition (str spring ","
+                                     "box-shadow var(--liquid-glass-motion-settle-duration) var(--liquid-glass-motion-settle-easing),"
+                                     "filter var(--liquid-glass-motion-press-duration) var(--liquid-glass-motion-press-easing)")})
+         " "
+         (css/rule ".liquid-glass__toggle-thumb" {:transition spring})
+         " "
+         (css/rule ".liquid-glass__disclosure-chevron" {:transition spring})
+         " }")))
+
+(defn- lens-supports-css
+  "SVG displacement-lens upgrade for .liquid-glass--lens: appends
+  url(#liquid-glass-lens) (the feTurbulence+feDisplacementMap filter emitted
+  by liquid-glass.components/lens-filter-defs) to the regular backdrop chain.
+  Feature-tested honestly: only engines that *parse* backdrop-filter url()
+  enter the block, and the blur()/saturate() functions stay in the upgraded
+  value, so an engine that parses url() but ignores it at paint time
+  (@supports can't detect that) still renders the plain-blur material rather
+  than losing the backdrop entirely. Engine support (2026): Chromium applies
+  backdrop-filter url() — with compositing caveats; Safari/Firefox fall
+  through to the base .liquid-glass--lens rule. See docs/design.md."
+  []
+  (let [v (str "blur(var(--liquid-glass-surface-regular-blur)) "
+               "saturate(var(--liquid-glass-surface-regular-saturate)) brightness(1.05) "
+               "url(#liquid-glass-lens)")]
+    (str "@supports (backdrop-filter: url(#liquid-glass-lens)) { "
+         (css/rule ".liquid-glass--lens" {:backdrop-filter v :-webkit-backdrop-filter v})
+         " }")))
+
+(defn- reduced-motion-css
+  "The prefers-reduced-motion guard, emitted as the *last* block of
+  component-css so it out-cascades the equal-specificity @supports upgrades
+  (spring transitions) and the base animation rules: every transition and
+  presence animation this stylesheet defines is disabled, including the
+  [data-state=\"closing\"] exit variants (whose attribute selector would
+  otherwise beat a bare class rule on specificity) and the JS pointer
+  highlight (also never attached — specular.js checks the same media query)."
+  []
+  (css/media "(prefers-reduced-motion: reduce)"
+             [[(sel ["panel" "button" "icon-button" "tab" "toggle-track" "toggle-thumb"
+                     "progress-bar-fill" "disclosure-chevron"])
+               {:transition "none"}]
+              [(sel overlay-components) {:animation "none"}]
+              [(sel overlay-components "[data-state=\"closing\"]") {:animation "none"}]
+              [".liquid-glass-js .liquid-glass__specular" {:display "none" :transition "none"}]]))
+
 (defn component-css
   "The Tier B CSS: glass material rules for every liquid-glass__* class,
   generated from EDN declaration maps via kotoba-lang/css (`css.core`).
   Every declaration references `var(--liquid-glass-...)` custom properties
   only (never a literal color/blur value) so `root-css` overrides propagate.
-  Includes a `prefers-reduced-motion: reduce` guard and a
-  `@supports not (backdrop-filter: blur(1px))` opaque-background fallback for
-  engines without backdrop-filter."
+  Ordered: rules + keyframes, the display:none specular default, then the
+  feature-tested upgrade blocks (`@supports not (backdrop-filter)` opaque
+  fallback, `@supports (transition-timing-function: linear())` spring settle,
+  `@supports (backdrop-filter: url())` displacement lens), and *last* the
+  `prefers-reduced-motion: reduce` guard so it out-cascades every
+  equal-specificity animation/transition above it."
   []
   (str
    (css/css
     {:rules (component-rules)
-     :keyframes {"liquid-glass-spin" {100 {:transform "rotate(360deg)"}}}
-     :media {"(prefers-reduced-motion: reduce)"
-             [[(sel ["panel" "button" "icon-button" "tab" "toggle-track" "toggle-thumb"
-                     "progress-bar-fill" "disclosure-chevron"])
-               {:transition "none"}]]}})
-   "\n.liquid-glass__specular{display:none;}\n" ;; visual is the ::before overlay; the span exists as a future GPU/JS hook (see docs/design.md)
-   "\n" (supports-fallback-css)))
+     :keyframes motion-keyframes})
+   "\n.liquid-glass__specular{display:none;}\n" ;; static visual is the ::before overlay; the span upgrades to the pointer highlight only under .liquid-glass-js (see specular-pointer-rules / docs/design.md)
+   "\n" (supports-fallback-css)
+   "\n" (spring-supports-css)
+   "\n" (lens-supports-css)
+   "\n" (reduced-motion-css)))
 
 (defn inline-style
   "Wrap CSS in a <style> tag for inline SSR embedding."

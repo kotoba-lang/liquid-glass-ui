@@ -37,5 +37,7 @@ jobs:
           key: ${{ runner.os }}-jdk${{ matrix.java }}-clj-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-jdk${{ matrix.java }}-clj-
+      - name: Checkout shitsuke sibling (deps.edn :local/root)
+        run: git clone --depth 1 https://github.com/kotoba-lang/shitsuke ../shitsuke
       - name: Run tests
         run: clojure -M:test

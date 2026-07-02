@@ -24,6 +24,7 @@
   `::before` overlay on `-track`/`-box` still renders the glass sheen without it."
   (:require [shitsuke.components :as sc]
             [liquid-glass.style :as s]
+            [liquid-glass.tokens :as t]
             [clojure.string :as str]))
 
 (defn- act->str
@@ -390,6 +391,33 @@
        summary
        [:span {:aria-hidden true :class (s/class-name :disclosure-chevron)} "⌄"]]
       [:div {:class (s/class-name :disclosure-body)} body]])))
+
+(defn lens-filter-defs
+  "Inline SVG filter definition for the optional `.liquid-glass--lens`
+  refraction treatment (feTurbulence + feDisplacementMap, id
+  `liquid-glass-lens`). Emit ONCE per page, anywhere in <body>; the element is
+  0×0, aria-hidden and paints nothing itself. Engines whose backdrop-filter
+  accepts url() (Chromium — partial; see docs/design.md \"Motion & dynamic
+  effects\") composite the displacement into the glass backdrop via the
+  @supports upgrade in liquid-glass.style; everything else keeps the plain
+  blur fallback, so this is safe to emit unconditionally but the *class* is
+  opt-in per showcase surface (displacement over a live backdrop is not free).
+
+  Values come from the `:liquid-glass/lens` token group. SVG filter-primitive
+  attributes cannot reference CSS custom properties, so they are resolved here
+  at hiccup-emit time — pass a partial token override map to retune, e.g.
+  `(lens-filter-defs {:liquid-glass/lens {:scale \"12\"}})`."
+  ([] (lens-filter-defs nil))
+  ([overrides]
+   (let [{:keys [frequency scale octaves]} (:liquid-glass/lens (t/resolve-tokens overrides))]
+     [:svg {:aria-hidden true :focusable "false" :width "0" :height "0"
+            :style {:position "absolute"}}
+      [:filter {:id "liquid-glass-lens" :x "-20%" :y "-20%" :width "140%" :height "140%"
+                :color-interpolation-filters "sRGB"}
+       [:feTurbulence {:type "fractalNoise" :baseFrequency frequency :numOctaves octaves
+                       :seed "7" :result "liquid-glass-lens-noise"}]
+       [:feDisplacementMap {:in "SourceGraphic" :in2 "liquid-glass-lens-noise" :scale scale
+                            :xChannelSelector "R" :yChannelSelector "G"}]]])))
 
 (defn gauge
   "Glass circular gauge (no shitsuke equivalent; SwiftUI `Gauge`-shaped —

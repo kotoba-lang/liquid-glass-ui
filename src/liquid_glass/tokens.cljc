@@ -10,6 +10,7 @@
      :liquid-glass/radius      {<size>    <css-length>}
      :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
      :liquid-glass/accent      {:tint ... :tint-strong ...}
+     :liquid-glass/lens        {:frequency ... :scale ... :octaves ...}
      :liquid-glass/ink         {:default ... :shadow ...}}
 
   `default-tokens` is the light-scheme material. `dark-tokens` is a *partial*
@@ -27,6 +28,40 @@
   (:require [shitsuke.tokens :as shitsuke]
             [clojure.string :as str]))
 
+(defn spring-linear-easing
+  "Generate a CSS `linear(...)` easing string approximating a damped spring.
+
+  CSS has no native spring timing function; `linear()` (a piecewise-linear
+  easing, Chrome 113+/Safari 17.2+/Firefox 112+) can approximate one from
+  sampled points. This is a pure fn so the curve is *generated*, not a magic
+  string: it samples the classic under-damped spring step response
+
+      x(t) = 1 - e^(-ζωt) (cos(ω_d t) + (ζω/ω_d) sin(ω_d t)),  ω_d = ω√(1-ζ²)
+
+  at `samples` evenly-spaced points over the normalized duration t ∈ [0,1]
+  (evenly-spaced linear() stops need no percentage suffixes). Defaults
+  (ζ=0.55, ω=13, 16 points) give one visible overshoot to ~1.12 that settles
+  back to 1 — the \"press releases and the glass bounces once\" feel. The
+  emitted literal lands in `default-tokens` under `[:liquid-glass/motion
+  :spring :easing]` (→ `--liquid-glass-motion-spring-easing`); engines without
+  linear() keep the cubic-bezier fallback via the @supports structure in
+  liquid-glass.style. Portable .cljc (Math/* works on both hosts); rounding is
+  done without `format` so it stays cljs/babashka-safe."
+  ([] (spring-linear-easing nil))
+  ([{:keys [zeta omega samples] :or {zeta 0.55 omega 13.0 samples 16}}]
+   (let [wd  (* omega (Math/sqrt (- 1.0 (* zeta zeta))))
+         pos (fn [t] (- 1.0 (* (Math/exp (- (* zeta omega t)))
+                               (+ (Math/cos (* wd t))
+                                  (* (/ (* zeta omega) wd) (Math/sin (* wd t)))))))
+         fmt (fn [v] (str (/ (Math/round (* v 1000.0)) 1000.0)))]
+     (str "linear("
+          (str/join ","
+                    (for [i (range samples)]
+                      (fmt (if (= i (dec samples))
+                             1.0 ;; clamp the terminal stop so the settle ends exactly at rest
+                             (pos (/ i (double (dec samples))))))))
+          ")"))))
+
 (def default-tokens
   "v1 light-scheme material. `:clear` (barely-there — sheet scrims, tooltips),
   `:regular` (the default control surface), `:thick` (toolbars/sheets that sit
@@ -42,15 +77,42 @@
     :floating {:shadow "0 20px 48px rgba(0,0,0,.28), 0 6px 16px rgba(0,0,0,.16)"}}
    :liquid-glass/specular
    {:highlight {:opacity "0.55"}
-    :rim       {:top-opacity "0.9" :bottom-opacity "0.05"}}
+    :rim       {:top-opacity "0.9" :bottom-opacity "0.05"}
+    ;; pointer-tracking highlight (progressive-enhancement JS; see
+    ;; liquid-glass.style/specular-selector + resources/liquid_glass/specular.js)
+    :pointer   {:opacity "0.5" :size "160px"}}
    :liquid-glass/radius
    {:sm "10px" :md "16px" :lg "24px" :pill "999px"}
    :liquid-glass/motion
-   {:press  {:duration "120ms" :easing "cubic-bezier(.32,.72,0,1)"}
-    :settle {:duration "420ms" :easing "cubic-bezier(.22,1,.36,1)"}}
+   {:press  {:duration "120ms" :easing "cubic-bezier(.32,.72,0,1)"
+             ;; press morph: :active squashes (wider + shorter) instead of a
+             ;; flat uniform scale — glass under a fingertip, not a shrink
+             :scale-x "1.02" :scale-y ".95"}
+    :settle {:duration "420ms" :easing "cubic-bezier(.22,1,.36,1)"}
+    ;; overlay presence transitions (scrim/sheet/alert/menu/tooltip):
+    ;; enter runs on insertion/initial paint; exit is the
+    ;; [data-state="closing"] attribute contract (see docs/design.md)
+    :overlay-enter {:duration "300ms" :easing "cubic-bezier(.05,.7,.1,1)" ;; decelerate
+                    :distance "12px"  ;; sheet/alert translateY offset
+                    :scale ".98"      ;; sheet/alert initial scale
+                    :scale-y ".9"}    ;; menu initial scaleY (top origin)
+    :overlay-exit  {:duration "200ms" :easing "cubic-bezier(.3,0,.8,.15)"} ;; accelerate
+    ;; spring settle (linear() curve, generated — see spring-linear-easing).
+    ;; Only applied inside @supports (transition-timing-function: linear(0,1));
+    ;; :settle's cubic-bezier stays the baseline elsewhere.
+    :spring {:duration "500ms" :easing (spring-linear-easing)}}
    :liquid-glass/accent
    {:tint        "rgba(10,132,255,0.55)"
     :tint-strong "rgba(10,132,255,0.85)"}
+   ;; SVG displacement "lens" refraction (components/lens-filter-defs +
+   ;; .liquid-glass--lens). NOTE: SVG filter-primitive attributes cannot read
+   ;; CSS custom properties, so lens-filter-defs resolves these at hiccup-emit
+   ;; time; they are still emitted as --liquid-glass-lens-* vars so the values
+   ;; are documented/overridable through the same token pipeline.
+   :liquid-glass/lens
+   {:frequency "0.008" ;; feTurbulence baseFrequency — lower = broader ripples
+    :scale     "8"     ;; feDisplacementMap scale (px) — keep small: it's a lens, not water
+    :octaves   "2"}
    :liquid-glass/ink
    {:default "#1c1c1e"
     :shadow  "0 1px 2px rgba(255,255,255,.4)"}})
@@ -66,7 +128,8 @@
     :thick   {:tint "rgba(16,16,20,0.58)" :border "rgba(255,255,255,0.16)"}}
    :liquid-glass/specular
    {:highlight {:opacity "0.30"}
-    :rim       {:top-opacity "0.5" :bottom-opacity "0.02"}}
+    :rim       {:top-opacity "0.5" :bottom-opacity "0.02"}
+    :pointer   {:opacity "0.28"}}
    :liquid-glass/ink
    {:default "#f5f5f7"
     :shadow  "0 1px 3px rgba(0,0,0,.45)"}})

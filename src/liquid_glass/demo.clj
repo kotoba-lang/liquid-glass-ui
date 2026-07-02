@@ -2,10 +2,14 @@
   "Static showcase page for GitHub Pages (docs/index.html). Pure dogfood: every
   element on the page is built from liquid-glass.components hiccup, rendered
   SSR via shitsuke.hiccup/->html — the same fn a JVM/babashka consumer would
-  call. No JS, no build step; the glass material is CSS only (backdrop-filter)
-  and needs no reagent mount to render correctly.
+  call. No build step; the glass material is CSS only (backdrop-filter) and
+  needs no reagent mount to render correctly. The one exception is the
+  pointer-tracking specular highlight, which is exactly the optional
+  progressive enhancement it claims to be: resources/liquid_glass/specular.js
+  is inlined at the end of <body> (the same SSR-embed move as inline-style);
+  remove the tag and the page loses only the pointer highlight.
 
-  Usage: clojure -M:local -m liquid-glass.demo"
+  Usage: clojure -M -m liquid-glass.demo"
   (:require [clojure.java.io :as io]
             [shitsuke.hiccup :as h]
             [liquid-glass.style :as s]
@@ -59,8 +63,20 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
      --liquid-glass-specular-rim-top-opacity:0.5;--liquid-glass-specular-rim-bottom-opacity:0.02;}
 .demo-dark .liquid-glass__panel,.demo-dark .liquid-glass__toolbar,.demo-dark .liquid-glass__button,
 .demo-dark .liquid-glass__icon-button{color:#fff;}
+.demo-note{color:#fff;opacity:.85;font-size:13px;line-height:1.5;max-width:680px;margin:0 0 14px;
+     text-shadow:0 1px 6px rgba(0,0,0,.3);}
+.demo-note code{font-size:12px;background:rgba(0,0,0,.25);padding:1px 5px;border-radius:4px;}
+.demo-lens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
 .demo-footer{color:#fff;opacity:.75;font-size:12px;text-align:center;margin-top:64px;}
 .demo-footer a{color:#fff;}")
+
+(defn- specular-script
+  "Inline the optional pointer-tracking specular enhancer (see
+  liquid-glass.style/specular-selector for the data-lg-selector contract) —
+  the SSR-embed twin of s/inline-style-hiccup, but for the one JS resource."
+  []
+  [:script {:data-lg-selector (s/specular-selector)}
+   [:hiccup/raw (slurp (io/resource "liquid_glass/specular.js"))]])
 
 (defn- variant-panel [title blurb variant]
   (lg/panel [[:h3 title] [:p blurb]] {:surface variant}))
@@ -162,6 +178,24 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
                       {:open? true})]
 
      [:section.demo-section
+      [:h2 "Overlay enter / exit"]
+      [:p.demo-note
+       "Scrim, sheet, alert, menu and tooltip animate in on first paint — pure CSS
+        @keyframes on element presence, no JS state. Toggle the disclosure to remove and
+        re-insert the alert below and replay its enter settle (fade + translateY + scale).
+        Exit is an attribute contract: the caller sets " [:code "data-state=\"closing\""]
+       ", waits for " [:code "animationend"] ", then removes the element — the matching
+        exit keyframes ship in this stylesheet (see docs/design.md)."]
+      (lg/disclosure "Toggle to replay the enter animation"
+                     [[:div.demo-overlay-wrap
+                       (lg/scrim)
+                       (lg/alert [[:h3 "Enter animation"]
+                                  [:p {:style {:font-size "13px" :opacity ".85" :margin "8px 0 0"}}
+                                   "This alert just ran liquid-glass-alert-enter."]]
+                                 {:label "Enter animation"})]]
+                     {:open? true})]
+
+     [:section.demo-section
       [:h2 "Sheet"]
       [:div.demo-sheet-wrap
        [:div.liquid-glass__scrim]
@@ -198,6 +232,34 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
                      {:surface :thick})]]
 
      [:section.demo-section
+      [:h2 "Pointer specular"]
+      [:p.demo-note
+       "Move the pointer across any glass surface: the inlined specular.js (~70 lines, one
+        rAF-throttled pointermove listener) writes --liquid-glass-pointer-x/-y onto the
+        element under the cursor and the hidden liquid-glass__specular span becomes a
+        tracking radial highlight. Everything is gated behind the .liquid-glass-js class
+        the script adds — no JS (or prefers-reduced-motion), no highlight."]
+      (lg/panel [[:h3 "Try it here"]
+                 [:p "A wide, calm surface makes the tracking highlight easy to see —
+                      but every button, toolbar and field on this page responds too."]]
+                {:surface :thick})]
+
+     [:section.demo-section
+      [:h2 "Lens"]
+      (lg/lens-filter-defs)
+      [:p.demo-note
+       "Optional SVG displacement lens: feTurbulence + feDisplacementMap (filter id
+        liquid-glass-lens, scale/frequency tokenized) appended to the backdrop chain under
+        @supports (backdrop-filter: url(#…)). Chromium composites the refraction (partial
+        support); Safari and Firefox fall back to the plain blurred material — the two
+        panels below look identical there. Opt-in per surface via .liquid-glass--lens."]
+      [:div.demo-lens-grid
+       (lg/panel [[:h3 "Lens refraction"] [:p "backdrop-filter: blur(…) … url(#liquid-glass-lens)"]]
+                 {:surface :thick :class "liquid-glass--lens"})
+       (lg/panel [[:h3 "Plain blur"] [:p "The same thick surface without the lens modifier."]]
+                 {:surface :thick})]]
+
+     [:section.demo-section
       [:h2 "Dark"]
       [:div.demo-dark
        [:div.demo-row
@@ -207,7 +269,8 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
         (lg/toggle {:checked true})
         (lg/text-field {:placeholder "Name"})]]]
 
-     [:footer.demo-footer "kotoba-lang/liquid-glass-ui · ADR-2607011900"]]]])
+     [:footer.demo-footer "kotoba-lang/liquid-glass-ui · ADR-2607011900"]]
+    (specular-script)]])
 
 (defn html []
   (str "<!doctype html>\n" (h/->html (page)) "\n"))

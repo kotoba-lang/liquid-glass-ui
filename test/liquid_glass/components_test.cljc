@@ -191,6 +191,26 @@
   (testing "closed by default"
     (is (not (str/includes? (html (c/disclosure "Advanced" [[:p "more"]])) "<details open")))))
 
+(deftest lens-filter-defs-test
+  (let [out (html (c/lens-filter-defs))]
+    (testing "one inline SVG filter definition with the stable id the CSS @supports upgrade targets"
+      (is (str/includes? out "<filter id=\"liquid-glass-lens\""))
+      (is (str/includes? out "<feTurbulence"))
+      (is (str/includes? out "<feDisplacementMap"))
+      (is (str/includes? out "aria-hidden")))
+    (testing "attribute values are the :liquid-glass/lens tokens (resolved at emit time —
+              SVG filter attributes can't read CSS custom properties)"
+      (is (str/includes? out "baseFrequency=\"0.008\""))
+      (is (str/includes? out "scale=\"8\""))
+      (is (str/includes? out "numOctaves=\"2\"")))
+    (testing "token overrides retune the filter through the same pipeline"
+      (let [out (html (c/lens-filter-defs {:liquid-glass/lens {:scale "12"}}))]
+        (is (str/includes? out "scale=\"12\""))
+        (is (str/includes? out "baseFrequency=\"0.008\""))))
+    (testing "paints nothing itself"
+      (is (str/includes? out "width=\"0\""))
+      (is (str/includes? out "height=\"0\"")))))
+
 (deftest gauge-test
   (let [out (html (c/gauge 72))]
     (is (str/includes? out "liquid-glass__gauge\""))

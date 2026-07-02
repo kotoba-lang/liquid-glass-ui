@@ -15,22 +15,25 @@ CSS-string value or nested map of CSS props), but with glass-specific groups:
  :liquid-glass/specular    {<part>    {...}}
  :liquid-glass/radius      {<size>    <css-length>}
  :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
- :liquid-glass/accent      {:tint ... :tint-strong ...}}
+ :liquid-glass/accent      {:tint ... :tint-strong ...}
+ :liquid-glass/ink         {:default ... :shadow ...}}
 ```
 
 - `default-tokens` — v1 **light-scheme** material. Three surface variants:
   `:clear` (barely-there — scrims/tooltips), `:regular` (default control
   surface), `:thick` (toolbars/sheets over busy content). Four elevation
-  levels: `:flat` / `:raised` / `:overlay` / `:floating`. `:accent` is the one
-  non-material color token — a translucent tint used for "on/checked/filled"
-  states (toggle-on, checkbox/radio-checked, slider/progress fill) so those
-  states still read as glass rather than a flat swatch. Same value in light
-  and dark (not in `dark-tokens` — override it yourself if a themed consumer
-  needs a different accent per scheme).
-- `dark-tokens` — a **partial** override map (only `:surface` tint/border and
-  `:specular` opacity — the entries that actually change when the content
-  behind the glass goes dark; blur/saturate/radius/motion are scheme-independent
-  and are simply not redeclared).
+  levels: `:flat` / `:raised` / `:overlay` / `:floating`. `:accent` is a
+  translucent tint used for "on/checked/filled" states (toggle-on, checkbox/
+  radio-checked, slider/progress fill) so those states still read as glass
+  rather than a flat swatch (same value in light and dark — override it
+  yourself if a themed consumer needs a different accent per scheme). `:ink`
+  is the default text color + a soft counter-shadow for text sitting on the
+  material (dark ink + a light shadow in the light scheme; light ink + a dark
+  shadow in dark) — see the "Text legibility" note below.
+- `dark-tokens` — a **partial** override map (`:surface` tint/border,
+  `:specular` opacity, and `:ink` — the entries that actually change when the
+  content behind the glass goes dark; blur/saturate/radius/motion are
+  scheme-independent and are simply not redeclared).
 - `deep-merge` — re-exported from `shitsuke.tokens` (same right-biased
   recursive merge; overrides compose identically across both token sets).
 - `(resolve-tokens overrides)` / `(resolve-dark-tokens dark-overrides)` —
@@ -47,21 +50,38 @@ Two-tier, same split as `shitsuke.style`:
 
 - **Tier A** (`root-css`) — portable CSS custom properties: light `:root` +
   dark media-query override, from `liquid-glass.tokens`.
-- **Tier B** (`component-css`) — the actual glass material rules, as a single
-  literal CSS string scoped to `liquid-glass__<component>` classes. Unlike
+- **Tier B** (`component-css` / `component-rules`) — the actual glass
+  material rules, scoped to `liquid-glass__<component>` classes. Generated
+  from **EDN declaration data** via [`kotoba-lang/css`](https://github.com/kotoba-lang/css)
+  (`css.core`) rather than hand-typed CSS strings — liquid-glass-ui is
+  `css.core`'s first real consumer. `component-rules` returns the raw
+  `[selector decls-map]` pairs; `component-css` renders them (plus a
+  `@keyframes`/`@media (prefers-reduced-motion: reduce)`/`@supports not
+  (backdrop-filter)` block) to the CSS string via `css.core/css`. Unlike
   shitsuke (whose component visuals are deferred to a shadow-css `:pages`
-  build that isn't wired up yet), liquid-glass-ui ships Tier B as plain CSS
-  text: no build step needed to see the material; the same string works
-  inlined in SSR or concatenated into a browser build's `main.css`. Every rule
-  references `var(--liquid-glass-...)` only — never a literal color/blur
-  value — so `root-css` overrides (including the dark-mode block) always
-  apply. Includes a `prefers-reduced-motion: reduce` guard and an
-  `@supports not (backdrop-filter: blur(1px))` opaque-background fallback for
-  engines without backdrop-filter.
+  build that isn't wired up yet), liquid-glass-ui ships Tier B as a plain CSS
+  string: no build step needed to see the material; the same string works
+  inlined in SSR or concatenated into a browser build's `main.css`. Every
+  declaration references `var(--liquid-glass-...)` only — never a literal
+  color/blur value — so `root-css` overrides (including the dark-mode block)
+  always apply.
 
-  Every glass surface gets the same three ingredients, built by three private
-  helpers (`backdrop`/`glass-bg`/`glass-shadow`) instead of ~15 hand-typed
-  copies, so a component can't end up with only some of them:
+  **Why data instead of strings**: two real bugs found while building this
+  repo were exactly the "wrote a class, forgot the rule" shape — `panel--flat`'s
+  shadow rule, and the `:specular :rim` tokens (defined, never referenced).
+  Hand-typed CSS strings don't catch that; `component-rules` being actual
+  data means a test can assert against it directly instead of regex-scraping
+  rendered text — see e.g. `components-test/every-elevation-shadow-carries-both-rim-vars-test`,
+  which walks every rule's `:box-shadow` and fails if an elevation shadow is
+  ever added without the rim insets (this test caught a real instance: the
+  `slider` thumb's vendor-prefixed pseudo-elements were hand-written outside
+  the shared helper and had elevation but no rim, until fixed).
+
+  Every glass surface gets the same three material ingredients plus a
+  default text treatment, built by four private declaration-map helpers
+  (`backdrop-decls`/`glass-bg-decls`/`glass-shadow-decls`/`ink-decls`)
+  instead of ~15 hand-typed copies, so a component can't end up with only
+  some of them:
   1. **backdrop-filter**: `blur` + `saturate` from its surface tier's tokens,
      plus a fixed `brightness(1.05)` lift — a flat blur reads as smudged
      glass, not lit glass.
@@ -74,6 +94,29 @@ Two-tier, same split as `shitsuke.style`:
      purpose, light from above). This is the detail that turns a flat
      translucent rectangle into something that reads as an actual lit glass
      edge.
+  4. **ink** (`color` + `text-shadow` from `:liquid-glass/ink`): applied on a
+     broader selector list than the specular treatment (`ink-components` in
+     `liquid-glass.style` — every top-level component root that can carry
+     text, including `toggle`/`checkbox`/`radio`'s outer `<label>`, not just
+     their inner glass box). `color`/`text-shadow` are inherited CSS
+     properties, so setting them once here reaches every nested span
+     (`checkbox-text`, `list-row-content`, …) without a rule per sub-element.
+     **Text legibility**: this replaces the browser default of inheriting
+     whatever ancestor color happened to be in scope — which is what
+     silently produced illegible text before this token existed (a consumer
+     had no way to know their page's own dark-on-light text would render as
+     dark-on-translucent-dark inside a glass panel without duplicating a
+     color override themselves). It does **not** attempt content-aware
+     adaptive tinting (sampling what's actually behind the glass and picking
+     a contrasting color) — that needs either JS or GPU compositing, is
+     explicitly out of scope for a static CSS material (see "Future work"),
+     and `ink` only follows the OS `prefers-color-scheme` signal, the same
+     one that already drives the surface tint. A consumer whose own
+     background genuinely conflicts with that (e.g. a light-scheme page with
+     a deliberately dark hero photo behind a glass panel, as this repo's own
+     `docs/index.html` showcase does against its colorful gradient) sets
+     `color`/`text-shadow` on their own more-specific selector to override it,
+     same as overriding any other CSS default.
 - `(class-name component)` → `"liquid-glass__<component>"` (also accepts
   `"panel--thick"`-shaped modifier names).
 - `(inline-style css?)` / `(inline-style-hiccup css?)` — `<style>` wrapper for

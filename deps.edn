@@ -3,19 +3,23 @@
  ;; primitives + re-frame seam). liquid-glass-ui owns no interaction/state logic —
  ;; it wraps shitsuke.components hiccup with glass material classes + a specular
  ;; highlight decoration, and adds its own token/style layer for the material
- ;; itself (blur/saturate/tint/elevation/specular/radius/motion). Core has one
- ;; runtime dep: shitsuke. Real reagent/re-frame/shadow-css are build/dev
- ;; aliases only (same split as chobo/mise/senden).
- :deps {io.github.kotoba-lang/shitsuke
-        {:git/url "https://github.com/kotoba-lang/shitsuke.git"
-         :git/sha "d7988c24f5cb37074b6bfc1f0c2e223f4e218f84"}}
+ ;; itself (blur/saturate/tint/elevation/specular/radius/motion). Runtime deps:
+ ;; shitsuke (component/dual-render contract) + kotoba-lang/css (component-css
+ ;; is generated from EDN rule data via css.core, not hand-typed CSS strings —
+ ;; liquid-glass-ui is css.core's first real consumer). Real reagent/re-frame/
+ ;; shadow-css are build/dev aliases only (same split as chobo/mise/senden).
+ :deps {io.github.kotoba-lang/shitsuke {:local/root "../shitsuke"}
+        io.github.kotoba-lang/css
+        {:git/url "https://github.com/kotoba-lang/css.git"
+         :git/sha "e8bb830b69aa1a726bb79dbd28f098f0875db673"}}
  :aliases
  {:test  {:extra-paths ["test"]
           :extra-deps {io.github.cognitect-labs/test-runner
                        {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
           :main-opts ["-m" "cognitect.test-runner"]
           :exec-fn cognitect.test-runner.api/test}
-  :local {:override-deps {io.github.kotoba-lang/shitsuke {:local/root "../shitsuke"}}}
+  :local {:override-deps {io.github.kotoba-lang/shitsuke {:local/root "../shitsuke"}
+                          io.github.kotoba-lang/css {:local/root "../css"}}}
   :cljs  {:extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}
                        reagent/reagent           {:mvn/version "1.2.0"}
                        re-frame/re-frame         {:mvn/version "1.4.3"}}}

@@ -22,7 +22,8 @@
     (is (str/includes? css "--liquid-glass-surface-regular-blur: 20px;"))
     (is (str/includes? css "--liquid-glass-radius-pill: 999px;"))
     (is (str/includes? css "--liquid-glass-motion-press-easing: cubic-bezier(.32,.72,0,1);"))
-    (is (str/includes? css "--liquid-glass-accent-tint-strong: rgba(10,132,255,0.85);")))
+    (is (str/includes? css "--liquid-glass-accent-tint-strong: rgba(10,132,255,0.85);"))
+    (is (str/includes? css "--liquid-glass-ink-default: #1c1c1e;")))
   (testing "overrides flow into emitted vars"
     (let [css (t/css-variables {:liquid-glass/radius {:md "20px"}})]
       (is (str/includes? css "--liquid-glass-radius-md: 20px;")))))
@@ -31,5 +32,6 @@
   (let [css (t/dark-css-variables)]
     (is (str/includes? css "@media (prefers-color-scheme: dark)"))
     (is (str/includes? css "--liquid-glass-surface-regular-tint: rgba(20,20,24,0.42);"))
+    (is (str/includes? css "--liquid-glass-ink-default: #f5f5f7;"))
     (testing "scheme-independent groups are not redeclared in the dark block"
       (is (not (str/includes? css "--liquid-glass-radius-"))))))

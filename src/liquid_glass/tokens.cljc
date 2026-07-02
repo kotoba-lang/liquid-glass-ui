@@ -9,10 +9,11 @@
      :liquid-glass/specular    {<part>    {...}}
      :liquid-glass/radius      {<size>    <css-length>}
      :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
-     :liquid-glass/accent      {:tint ... :tint-strong ...}}
+     :liquid-glass/accent      {:tint ... :tint-strong ...}
+     :liquid-glass/ink         {:default ... :shadow ...}}
 
   `default-tokens` is the light-scheme material. `dark-tokens` is a *partial*
-  override map (surface tint/border + specular opacity only — the values a
+  override map (surface tint/border, specular opacity, and ink — the values a
   glass material actually needs to change when the content behind it goes
   dark) applied under `@media (prefers-color-scheme: dark)` by
   `liquid-glass.style/root-css`, the same var-name-override technique used for
@@ -49,7 +50,10 @@
     :settle {:duration "420ms" :easing "cubic-bezier(.22,1,.36,1)"}}
    :liquid-glass/accent
    {:tint        "rgba(10,132,255,0.55)"
-    :tint-strong "rgba(10,132,255,0.85)"}})
+    :tint-strong "rgba(10,132,255,0.85)"}
+   :liquid-glass/ink
+   {:default "#1c1c1e"
+    :shadow  "0 1px 2px rgba(255,255,255,.4)"}})
 
 (def dark-tokens
   "Partial override applied inside `@media (prefers-color-scheme: dark)`. Only
@@ -62,7 +66,10 @@
     :thick   {:tint "rgba(16,16,20,0.58)" :border "rgba(255,255,255,0.16)"}}
    :liquid-glass/specular
    {:highlight {:opacity "0.30"}
-    :rim       {:top-opacity "0.5" :bottom-opacity "0.02"}}})
+    :rim       {:top-opacity "0.5" :bottom-opacity "0.02"}}
+   :liquid-glass/ink
+   {:default "#f5f5f7"
+    :shadow  "0 1px 3px rgba(0,0,0,.45)"}})
 
 (def deep-merge
   "Re-exported from shitsuke.tokens: right-biased recursive merge for token maps."

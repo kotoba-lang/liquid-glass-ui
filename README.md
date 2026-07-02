@@ -4,23 +4,26 @@
 translucent, specular-highlighted, blur+saturate material (in the spirit of
 Apple's Liquid Glass / iOS 26 design language) built as a thin layer **on top
 of [`shitsuke`](../shitsuke)**, kotoba-lang's UI design system (tokens +
-hiccup + style + portable re-frame seam + component primitives).
+hiccup + style + portable re-frame seam + component primitives), with its
+Tier B CSS generated as EDN data via [`kotoba-lang/css`](../css) (`css.core`)
+rather than hand-typed CSS strings.
 
 liquid-glass-ui does not reimplement interaction, state, or the dual-render
 contract — shitsuke already owns that. It owns exactly one thing: **the glass
-material** — as its own token group, its own two-tier style layer, and a set
-of pure-hiccup components that wrap (or, where no shitsuke equivalent exists,
-extend) `shitsuke.components` with glass classes and a specular-highlight
-decoration.
+material** — as its own token group, its own two-tier style layer (built from
+`css.core` EDN rule data, not string concatenation), and a set of pure-hiccup
+components that wrap (or, where no shitsuke equivalent exists, extend)
+`shitsuke.components` with glass classes and a specular-highlight decoration.
 
 ```text
-liquid-glass-ui = material tokens (blur/saturate/tint/elevation/specular/radius/motion/accent)
-                  + style (CSS vars + literal component CSS, portable, no build step)
+liquid-glass-ui = material tokens (blur/saturate/tint/elevation/specular/radius/motion/accent/ink)
+                  + style (css.core EDN rules -> CSS vars + component-css, portable, no build step)
                   + 29 components: panel/toolbar/nav-bar/tab-bar/sheet/alert/menu/scrim/list/disclosure
                     + button/icon-button/text-field/text-area/search-field/menu-select/
                       toggle/checkbox/radio/slider/stepper
                     + progress-bar/progress-circle/gauge/badge/chip/label/avatar/divider/tooltip
                   on top of shitsuke (tokens/hiccup/style/re-frame/components)
+                  + kotoba-lang/css (css.core — EDN-to-CSS rule generation)
 ```
 
 Component coverage targets the practical subset of SwiftUI's control catalog
@@ -32,10 +35,11 @@ and friends — native-OS-only widgets a CSS skin can't meaningfully re-skin).
 
 | layer | role |
 |---|---|
-| `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion` `:accent`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
-| `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-css` (Tier B literal glass rules — backdrop-filter+brightness, radial specular overlay, top/bottom rim edge light, elevation shadow, press/hover motion, reduced-motion + no-backdrop-filter fallback) |
+| `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion` `:accent` `:ink`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
+| `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-rules` (Tier B as EDN `[selector decls]` data) + `component-css` (`component-rules` rendered via `css.core/css` — backdrop-filter+brightness, radial specular overlay, top/bottom rim edge light, default ink text color+shadow, elevation shadow, press/hover motion, reduced-motion + no-backdrop-filter fallback) |
 | `liquid-glass.components` | 29 pure-hiccup glass primitives — see `docs/design.md` for the full table |
 | shitsuke (dep) | dual-render contract, `act` interaction convention, `button`/`icon-button`/`toolbar`/`card`/`input`/`textarea`/`select` primitives that liquid-glass-ui wraps |
+| `kotoba-lang/css` (dep) | `css.core` — CSS as EDN data (`declarations`/`rule`/`media`/`keyframes`/`css`); liquid-glass-ui is its first real consumer |
 
 ## Why a separate repo instead of adding it to shitsuke
 
@@ -73,12 +77,14 @@ repo so a consumer that wants shitsuke's structure without the glass look
 ## Tests
 
 ```bash
-clojure -M:test            # published git shitsuke dep
-clojure -M:local:test      # local ../shitsuke override
+clojure -M:test            # published git shitsuke + css deps
+clojure -M:local:test      # local ../shitsuke + ../css overrides
 ```
 
 ## Design
 
-See `docs/design.md` for the token/style/component API and
-`docs/adr/0001-liquid-glass-ui.md` for the decision record. Superproject-level
-decision: `90-docs/adr/2607011900-kotoba-lang-liquid-glass-ui.md`.
+See `docs/design.md` for the token/style/component API,
+`docs/adr/0001-liquid-glass-ui.md` for the original decision record, and
+`docs/adr/0002-css-core-migration-and-ink-token.md` for the `css.core`
+migration + `:ink` token addition. Superproject-level decision:
+`90-docs/adr/2607011900-kotoba-lang-liquid-glass-ui.md`.

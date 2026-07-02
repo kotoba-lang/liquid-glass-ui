@@ -212,6 +212,34 @@
    (c/list-view [(c/list-row "x" {:trailing "x"})])
    (c/chip "x" {:on-remove-act :x}) (c/disclosure "x" [[:p "x"]])])
 
+;; --- data-level checks against s/component-rules (not the rendered string) -
+;; The point of the css.core migration: assert against the EDN rules directly
+;; instead of regex-scraping rendered CSS text.
+
+(deftest component-rules-shape-test
+  (testing "component-rules is data: every entry is a [selector decls-map] pair"
+    (doseq [[sel decls] (s/component-rules)]
+      (is (string? sel))
+      (is (map? decls)))))
+
+(deftest every-elevation-shadow-carries-both-rim-vars-test
+  (testing "no rule can have an elevation box-shadow without the rim edge-light (the panel--flat/orphaned-rim bug class, at the data level)"
+    (doseq [[sel decls] (s/component-rules)
+            :let [shadow (:box-shadow decls)]
+            :when (and shadow (str/includes? shadow "elevation"))]
+      (is (str/includes? shadow "specular-rim-top-opacity") (str sel " has an elevation shadow but no top rim"))
+      (is (str/includes? shadow "specular-rim-bottom-opacity") (str sel " has an elevation shadow but no bottom rim")))))
+
+(deftest ink-rule-present-test
+  (let [ink-rule (first (filter (fn [[_ decls]] (= "var(--liquid-glass-ink-default)" (:color decls)))
+                                 (s/component-rules)))]
+    (is (some? ink-rule) "no rule sets the default ink color")
+    (is (= "var(--liquid-glass-ink-shadow)" (:text-shadow (second ink-rule))))
+    (testing "applies broadly across component roots, not just the ::before-bearing glass surfaces"
+      (is (str/includes? (first ink-rule) "liquid-glass__toggle,"))
+      (is (str/includes? (first ink-rule) "liquid-glass__checkbox,"))
+      (is (str/includes? (first ink-rule) "liquid-glass__tooltip")))))
+
 (deftest every-rendered-class-has-a-css-rule-test
   (let [css (s/component-css)
         rendered (str/join " " (map html every-component-sample))

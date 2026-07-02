@@ -5,13 +5,12 @@
   call. No build step; the glass material is CSS only (backdrop-filter) and
   needs no reagent mount to render correctly. The one exception is the
   pointer-tracking specular highlight, which is exactly the optional
-  progressive enhancement it claims to be: resources/liquid_glass/specular.js
-  is inlined at the end of <body> (the same SSR-embed move as inline-style);
-  remove the tag and the page loses only the pointer highlight.
+  progressive enhancement it claims to be: a CLJ-owned inline script is emitted
+  at the end of <body> (the same SSR-embed move as inline-style); remove the
+  tag and the page loses only the pointer highlight.
 
   Usage: clojure -M -m liquid-glass.demo"
-  (:require [clojure.java.io :as io]
-            [shitsuke.hiccup :as h]
+  (:require [shitsuke.hiccup :as h]
             [liquid-glass.style :as s]
             [liquid-glass.components :as lg]))
 
@@ -70,13 +69,16 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
 .demo-footer{color:#fff;opacity:.75;font-size:12px;text-align:center;margin-top:64px;}
 .demo-footer a{color:#fff;}")
 
+(def ^:private specular-js
+  "(function(){'use strict';if(typeof document==='undefined'||!window.requestAnimationFrame)return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var script=document.currentScript;function derivedSelector(){var seen=Object.create(null);var marks=document.querySelectorAll('.liquid-glass__specular');for(var i=0;i<marks.length;i++){var host=marks[i].parentElement;if(!host)continue;for(var j=0;j<host.classList.length;j++){var c=host.classList[j];if(c.indexOf('liquid-glass__')===0&&c.indexOf('--')===-1)seen['.'+c]=true;}}return Object.keys(seen).join(',');}var selector=(script&&script.dataset&&script.dataset.lgSelector)||derivedSelector();if(!selector)return;document.documentElement.classList.add('liquid-glass-js');var active=null,pending=null,raf=0;function clearActive(){if(active){active.removeAttribute('data-lg-pointer');active=null;}}function frame(){raf=0;var e=pending;pending=null;if(!e)return;var host=e.target&&e.target.closest?e.target.closest(selector):null;if(host!==active)clearActive();if(!host)return;var r=host.getBoundingClientRect();if(!r.width||!r.height)return;var x=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));var y=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));host.style.setProperty('--liquid-glass-pointer-x',x.toFixed(3));host.style.setProperty('--liquid-glass-pointer-y',y.toFixed(3));host.setAttribute('data-lg-pointer','');active=host;}document.addEventListener('pointermove',function(e){pending=e;if(!raf)raf=requestAnimationFrame(frame);},{passive:true});document.addEventListener('pointerleave',clearActive,{passive:true});})();")
+
 (defn- specular-script
   "Inline the optional pointer-tracking specular enhancer (see
   liquid-glass.style/specular-selector for the data-lg-selector contract) —
-  the SSR-embed twin of s/inline-style-hiccup, but for the one JS resource."
+  the SSR-embed twin of s/inline-style-hiccup."
   []
   [:script {:data-lg-selector (s/specular-selector)}
-   [:hiccup/raw (slurp (io/resource "liquid_glass/specular.js"))]])
+   [:hiccup/raw specular-js]])
 
 (defn- variant-panel [title blurb variant]
   (lg/panel [[:h3 title] [:p blurb]] {:surface variant}))

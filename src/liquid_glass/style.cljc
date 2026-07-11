@@ -625,7 +625,7 @@
   (and sheet/badge/text-field/text-area/search-field/menu-select/checkbox-
   box/radio-box/stepper/nav-bar/alert/menu/list/chip/disclosure) still
   carried a live transition under reduced-motion. Found auditing
-  net-babiniku's nav bar (kotoba-lang/liquid-glass-ui#3)."
+  net-babiniku's nav bar (kotoba-lang/liquid-glass-ui#1)."
   []
   (css/media "(prefers-reduced-motion: reduce)"
              [[(sel (concat glass-surface-components

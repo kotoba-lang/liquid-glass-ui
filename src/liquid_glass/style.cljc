@@ -612,11 +612,24 @@
   presence animation this stylesheet defines is disabled, including the
   [data-state=\"closing\"] exit variants (whose attribute selector would
   otherwise beat a bare class rule on specificity) and the JS pointer
-  highlight (also never attached — specular.js checks the same media query)."
+  highlight (also never attached — specular.js checks the same media query).
+
+  The first rule's selector is `glass-surface-components` itself (every root
+  that base-rules gives the universal transform/box-shadow/filter transition
+  to) plus the handful of nested sub-elements that carry their OWN separate
+  transition (tab, toggle-thumb, progress-bar-fill, disclosure-chevron —
+  none of those four are glass-surface roots themselves). Previously this
+  was a hand-maintained subset (panel/button/icon-button/tab/toggle-track/
+  toggle-thumb/progress-bar-fill/disclosure-chevron) that had drifted out of
+  sync with glass-surface-components as new components were added — toolbar
+  (and sheet/badge/text-field/text-area/search-field/menu-select/checkbox-
+  box/radio-box/stepper/nav-bar/alert/menu/list/chip/disclosure) still
+  carried a live transition under reduced-motion. Found auditing
+  net-babiniku's nav bar (kotoba-lang/liquid-glass-ui#1)."
   []
   (css/media "(prefers-reduced-motion: reduce)"
-             [[(sel ["panel" "button" "icon-button" "tab" "toggle-track" "toggle-thumb"
-                     "progress-bar-fill" "disclosure-chevron"])
+             [[(sel (concat glass-surface-components
+                            ["tab" "toggle-thumb" "progress-bar-fill" "disclosure-chevron"]))
                {:transition "none"}]
               [(sel overlay-components) {:animation "none"}]
               [(sel overlay-components "[data-state=\"closing\"]") {:animation "none"}]

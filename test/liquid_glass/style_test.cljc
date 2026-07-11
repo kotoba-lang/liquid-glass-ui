@@ -143,4 +143,17 @@
       (is (str/includes? block "animation: none"))
       (is (str/includes? block ".liquid-glass__alert[data-state=\"closing\"]")))
     (testing "pointer highlight off even when the script added .liquid-glass-js"
-      (is (str/includes? block ".liquid-glass-js .liquid-glass__specular { display: none;")))))
+      (is (str/includes? block ".liquid-glass-js .liquid-glass__specular { display: none;")))
+    (testing "every glass-surface-components root is covered, not a hand-maintained subset
+              that can drift out of sync (found via net-babiniku auditing .liquid-glass__toolbar
+              specifically -- toolbar, sheet, badge, text-field, and several others were
+              missing from the old hardcoded list even though base-rules gives every one of
+              them the same universal transform/box-shadow/filter transition)"
+      (doseq [c ["panel" "button" "icon-button" "toolbar" "sheet" "badge" "text-field"
+                 "text-area" "search-field" "menu-select" "toggle-track" "checkbox-box"
+                 "radio-box" "stepper" "nav-bar" "alert" "menu" "list" "chip" "disclosure"]]
+        (is (str/includes? block (str ".liquid-glass__" c))
+            (str "missing ." (str "liquid-glass__" c) " from the reduced-motion transition:none selector"))))
+    (testing "the nested sub-elements with their OWN separate transition (not glass-surface roots) are still covered"
+      (doseq [c ["tab" "toggle-thumb" "progress-bar-fill" "disclosure-chevron"]]
+        (is (str/includes? block (str ".liquid-glass__" c)))))))

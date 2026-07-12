@@ -51,9 +51,9 @@ per-layer breakdown and honest engine-support notes.
 | layer | role |
 |---|---|
 | `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion` `:accent` `:ink`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
-| `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-rules` (Tier B as EDN `[selector decls]` data) + `component-css` (`component-rules` rendered via `css.core/css` — backdrop-filter+brightness, radial specular overlay, top/bottom rim edge light, default ink text color+shadow, elevation shadow, press/hover motion, reduced-motion + no-backdrop-filter fallback) |
+| `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-rules` (Tier B as EDN `[selector decls]` data) + `component-css` (`component-rules` rendered via `css.core/css` — backdrop-filter+brightness, radial specular overlay, top/bottom rim edge light, default ink text color+shadow, elevation shadow, press/hover motion, reduced-motion + no-backdrop-filter fallback) + `layered-css` (the bundle wrapped in the `kotoba.glass` cascade layer — what consumers inject) |
 | `liquid-glass.components` | 29 pure-hiccup glass primitives — see `docs/design.md` for the full table |
-| shitsuke (dep) | dual-render contract, `act` interaction convention, `button`/`icon-button`/`toolbar`/`card`/`input`/`textarea`/`select` primitives that liquid-glass-ui wraps |
+| shitsuke (dep) | dual-render contract, `act` interaction convention, `button`/`icon-button`/`toolbar`/`card`/`select` primitives that liquid-glass-ui wraps (`text-field`/`text-area`/`search-field` build their native controls directly — see `docs/design.md` § Controls for the reagent keystroke-loss bug that forced this) |
 | `kotoba-lang/css` (dep) | `css.core` — CSS as EDN data (`declarations`/`rule`/`media`/`keyframes`/`css`); liquid-glass-ui is its first real consumer |
 
 ## Why a separate repo instead of adding it to shitsuke
@@ -73,7 +73,8 @@ repo so a consumer that wants shitsuke's structure without the glass look
          '[liquid-glass.components :as lg]
          '[shitsuke.hiccup :as h])
 
-;; once per page/app: emit the material CSS (SSR <style> or prepend to main.css)
+;; once per page/app: emit the material CSS (SSR <style> or prepend to main.css).
+;; The zero-arity embeds (ls/layered-css) — everything inside @layer kotoba.glass.
 (ls/inline-style)
 
 ;; pure hiccup, same dual-render contract as shitsuke
@@ -88,6 +89,22 @@ repo so a consumer that wants shitsuke's structure without the glass look
 ;; shitsuke.reagent.core/render; state via shitsuke.re-frame.core (unchanged
 ;; from shitsuke — liquid-glass-ui does not touch the state layer).
 ```
+
+## Cascade contract (`@layer kotoba.hig, kotoba.glass`)
+
+All library CSS is delivered inside the **`kotoba.glass` cascade layer**
+(`liquid-glass.style/layered-css`, the default payload of
+`inline-style`/`inline-style-hiccup`), with the order pinned as
+`@layer kotoba.hig, kotoba.glass;` (`kotoba.hig` is shitsuke's base layer;
+declaring it is harmless if unused). Because unlayered author CSS always
+outranks layered author CSS, **your app's own stylesheet wins over this
+library's rules regardless of injection order or selector specificity** —
+keep app CSS unlayered and override the material with plain selectors.
+Never write compound selectors against `liquid-glass__*` classes
+(`.liquid-glass__toolbar.app-toolbar { ... }`) to win specificity fights —
+that pattern is obsolete. Raw `root-css`/`component-css` remain available
+unwrapped for tests and custom layering pipelines. See
+`docs/design.md` § "Styling contract".
 
 ## Tests
 

@@ -79,7 +79,8 @@
    {:highlight {:opacity "0.55"}
     :rim       {:top-opacity "0.9" :bottom-opacity "0.05"}
     ;; pointer-tracking highlight (progressive-enhancement JS; see
-    ;; liquid-glass.style/specular-selector + resources/liquid_glass/specular.js)
+    ;; liquid-glass.style/specular-selector + the reference script inlined
+    ;; in liquid-glass.demo/specular-js, ADR-0003)
     :pointer   {:opacity "0.5" :size "160px"}}
    :liquid-glass/radius
    {:sm "10px" :md "16px" :lg "24px" :pill "999px"}

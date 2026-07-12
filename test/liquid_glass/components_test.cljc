@@ -172,7 +172,14 @@
     (is (str/includes? out "liquid-glass__list-row-trailing"))
     (is (str/includes? out "data-act=\"open\"")))
   (testing "surface variant modifier class"
-    (is (str/includes? (html (c/list-view [] {:surface :thick})) "liquid-glass__list--thick"))))
+    (is (str/includes? (html (c/list-view [] {:surface :thick})) "liquid-glass__list--thick")))
+  ;; Kaizen (co-scientist round 75, net-babiniku): a screen reader had no way to
+  ;; expose a group of rows as a navigable list -- role="list"/role="listitem" is
+  ;; the standard WAI-ARIA pairing for a list container + its items.
+  (testing "list/listitem ARIA roles"
+    (let [out (html (c/list-view [(c/list-row "Row 1") (c/list-row "Row 2")]))]
+      (is (str/includes? out "role=\"list\""))
+      (is (= 2 (count (re-seq #"role=\"listitem\"" out)))))))
 
 (deftest chip-test
   (let [out (html (c/chip "Vegetarian" {:on-remove-act :remove-veg}))]

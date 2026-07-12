@@ -339,6 +339,18 @@
   ([text opts]
    [:span {:role "tooltip" :class (cls (s/class-name :tooltip) (:class opts))} text]))
 
+;; Kaizen (net-babiniku co-scientist round 75): a REAL, live-confirmed accessibility
+;; gap this closes -- found via Playwright's actual accessibility-tree API
+;; (ariaSnapshot), not just visible text. Both `list-view`/`list-row` rendered as
+;; plain `<div>`s with no `role` at all, so a screen reader had no way to expose a
+;; group of rows as a navigable list (item count on entry, next/previous-item
+;; shortcuts) -- every row read as loose, ungrouped text directly under whatever
+;; heading preceded it. Unlike a genuinely general-purpose component (e.g. `avatar`,
+;; fixed at a consumer's call site in a prior round since it has plausible non-list
+;; uses), a component literally named list-view/list-row has no plausible use case
+;; where list semantics would be wrong -- fixed here, upstream, not per-consumer.
+;; `role="list"`/`role="listitem"` is purely additive ARIA (no visual/behavioral
+;; change) and is the standard WAI-ARIA pairing for a list container + its items.
 (defn list-view
   "Glass list container (no shitsuke equivalent). `rows` is a seq of
   `list-row` (or other hiccup) — an empty collection is fine (renders no
@@ -347,7 +359,7 @@
   ([rows opts]
    (let [{:keys [surface class]} opts
          variant (when (and surface (not= surface :regular)) (s/class-name (str "list--" (name surface))))]
-     [:div {:class (str/join " " (remove nil? [(s/class-name :list) variant class]))}
+     [:div {:class (str/join " " (remove nil? [(s/class-name :list) variant class])) :role "list"}
       (seq rows)
       (specular)])))
 
@@ -358,7 +370,7 @@
   ([content] (list-row content nil))
   ([content opts]
    (let [{:keys [act trailing class]} opts]
-     [:div {:class (cls (s/class-name :list-row) class) :data-act (some-> act act->str)}
+     [:div {:class (cls (s/class-name :list-row) class) :data-act (some-> act act->str) :role "listitem"}
       [:div {:class (s/class-name :list-row-content)} content]
       (when trailing [:div {:class (s/class-name :list-row-trailing)} trailing])])))
 

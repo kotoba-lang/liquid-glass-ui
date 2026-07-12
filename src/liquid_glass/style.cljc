@@ -146,7 +146,8 @@
 (defn specular-selector
   "CSS selector list matching every component root that carries a
   `liquid-glass__specular` marker span — the hosts the optional
-  pointer-tracking enhancer (resources/liquid_glass/specular.js) targets.
+  pointer-tracking enhancer (the reference script inlined by
+  liquid-glass.demo/specular-script; see ADR-0003) targets.
   Public so an embedder can hand it to the script via its `data-lg-selector`
   attribute (the script also derives the same list from the marker spans in
   the document when the attribute is absent) — one source of truth, no
@@ -481,7 +482,9 @@
   ;; Pointer-tracking specular highlight on the `liquid-glass__specular`
   ;; marker span — the seam docs/design.md reserved for "a pointer/device-
   ;; motion-driven highlight position". Everything is gated behind the
-  ;; `.liquid-glass-js` class that resources/liquid_glass/specular.js adds to
+  ;; `.liquid-glass-js` class that the pointer-tracking enhancer script (the
+  ;; reference implementation is inlined in liquid-glass.demo/specular-js,
+  ;; ADR-0003) adds to
   ;; <html>: without the script the span keeps its display:none default and
   ;; nothing changes. The script writes --liquid-glass-pointer-x/-y (0..1,
   ;; relative to the host rect) and toggles [data-lg-pointer] on the hovered
@@ -612,7 +615,8 @@
   presence animation this stylesheet defines is disabled, including the
   [data-state=\"closing\"] exit variants (whose attribute selector would
   otherwise beat a bare class rule on specificity) and the JS pointer
-  highlight (also never attached — specular.js checks the same media query).
+  highlight (also never attached — the reference enhancer script,
+  liquid-glass.demo/specular-js, checks the same media query).
 
   The first rule's selector is `glass-surface-components` itself (every root
   that base-rules gives the universal transform/box-shadow/filter transition
@@ -657,13 +661,49 @@
    "\n" (lens-supports-css)
    "\n" (reduced-motion-css)))
 
+;; --- cascade layer -----------------------------------------------------
+;;
+;; All library CSS is delivered inside the `kotoba.glass` cascade layer.
+;; Per the CSS cascade spec, *unlayered* author CSS beats *layered* author
+;; CSS regardless of source order or selector specificity — so a consumer's
+;; own stylesheet always wins over this library's rules, even when the
+;; library `<style>` is injected at runtime AFTER the app's. This kills the
+;; specificity wars consumers previously fought (net-babiniku carried ~100
+;; lines of compound-selector overrides like
+;; `.liquid-glass__toolbar.app-toolbar` purely to out-specify this library).
+;; Apps must NOT write
+;; compound selectors against `liquid-glass__*` classes to win specificity
+;; anymore — a plain class selector in unlayered app CSS is enough.
+
+(def layer-order
+  "The cascade-layer order declaration emitted before the layered bundle:
+  `kotoba.hig` (shitsuke's base layer — declaring it here is harmless if
+  unused, and pins the relative order when both skins are on a page) below
+  `kotoba.glass` (this library). Unlayered app CSS outranks both."
+  "@layer kotoba.hig, kotoba.glass;")
+
+(defn layered-css
+  "The full material bundle — `root-css` + `component-css` — wrapped in
+  `@layer kotoba.glass { ... }`, preceded by the `layer-order` declaration.
+  This is the string consumers should inject (or embed via `inline-style` /
+  `inline-style-hiccup`, which default to it). Nested at-rules (`@media`,
+  `@supports`, `@keyframes`) are valid inside `@layer`, so the whole bundle
+  wraps as-is. The raw unwrapped `root-css` / `component-css` stay public for
+  tests and advanced pipelines that do their own layering."
+  ([] (layered-css (str (root-css) "\n" (component-css))))
+  ([css] (str layer-order "\n@layer kotoba.glass {\n" css "\n}")))
+
 (defn inline-style
-  "Wrap CSS in a <style> tag for inline SSR embedding."
-  ([] (inline-style (str (root-css) "\n" (component-css))))
+  "Wrap CSS in a <style> tag for inline SSR embedding. The 0-arity embeds the
+  layered bundle (`layered-css`) — use it (or pass `(layered-css ...)`
+  yourself) so app CSS stays authoritative; pass raw CSS only when you are
+  doing your own layering."
+  ([] (inline-style (layered-css)))
   ([css] (str "<style>\n" css "\n</style>")))
 
 (defn inline-style-hiccup
   "Hiccup form of inline-style: [:style [:hiccup/raw css]] — the raw form is
-  understood by shitsuke.hiccup/->html so the CSS is not escaped."
-  ([] (inline-style-hiccup (str (root-css) "\n" (component-css))))
+  understood by shitsuke.hiccup/->html so the CSS is not escaped. The 0-arity
+  embeds the layered bundle (`layered-css`), same contract as inline-style."
+  ([] (inline-style-hiccup (layered-css)))
   ([css] [:style [:hiccup/raw css]]))

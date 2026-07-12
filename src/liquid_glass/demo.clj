@@ -10,7 +10,8 @@
   tag and the page loses only the pointer highlight.
 
   Usage: clojure -M -m liquid-glass.demo"
-  (:require [shitsuke.hiccup :as h]
+  (:require [clojure.java.io :as io]
+            [shitsuke.hiccup :as h]
             [liquid-glass.style :as s]
             [liquid-glass.components :as lg]))
 
@@ -90,7 +91,9 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
     [:title "liquid-glass-ui — kotoba-lang"]
     [:link {:rel "icon" :href "data:,"}]
-    (s/inline-style-hiccup (str (s/root-css) "\n" (s/component-css)))
+    ;; library CSS inside @layer kotoba.glass; the page's own CSS below stays
+    ;; unlayered and therefore always outranks it (the cascade contract).
+    (s/inline-style-hiccup)
     [:style page-css]]
    [:body
     [:div.demo-shell

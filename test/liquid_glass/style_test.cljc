@@ -33,6 +33,40 @@
   (is (str/starts-with? (s/inline-style) "<style>"))
   (is (str/includes? (s/inline-style) ":root {")))
 
+;; --- cascade layer -------------------------------------------------------
+
+(defn- count-char [s ch] (count (filter #(= ch %) s)))
+
+(deftest layered-css-test
+  (let [css (s/layered-css)]
+    (testing "layer-order declaration first (kotoba.hig below kotoba.glass), then the layered block"
+      (is (str/starts-with? css "@layer kotoba.hig, kotoba.glass;"))
+      (is (str/includes? css "@layer kotoba.glass {")))
+    (testing "the whole bundle is inside the layer"
+      (is (str/includes? css ":root {"))
+      (is (str/includes? css "@media (prefers-color-scheme: dark)"))
+      (is (str/includes? css "@supports not (backdrop-filter"))
+      (is (str/includes? css "@media (prefers-reduced-motion: reduce)")))
+    (testing "wrapping keeps the output parseable: balanced braces, closes the layer block"
+      (is (= (count-char css \{) (count-char css \})))
+      (is (str/ends-with? (str/trimr css) "}")))
+    (testing "custom css passes through the same wrapper"
+      (is (= "@layer kotoba.hig, kotoba.glass;\n@layer kotoba.glass {\n.x{color:red}\n}"
+             (s/layered-css ".x{color:red}"))))))
+
+(deftest inline-style-layered-test
+  (testing "the zero-arity SSR embeds now deliver the layered bundle"
+    (let [tag (s/inline-style)]
+      (is (str/includes? tag "@layer kotoba.hig, kotoba.glass;"))
+      (is (str/includes? tag "@layer kotoba.glass {")))
+    (let [[t [raw css]] (s/inline-style-hiccup)]
+      (is (= :style t))
+      (is (= :hiccup/raw raw))
+      (is (str/starts-with? css "@layer kotoba.hig, kotoba.glass;"))))
+  (testing "raw root-css/component-css stay unwrapped for tests/advanced use"
+    (is (not (str/includes? (s/root-css) "@layer")))
+    (is (not (str/includes? (s/component-css) "@layer")))))
+
 ;; --- motion & dynamic effects ------------------------------------------------
 
 (deftest overlay-enter-exit-test

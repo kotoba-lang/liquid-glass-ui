@@ -66,18 +66,101 @@
 (deftest text-field-test
   (let [out (html (c/text-field {:id "n" :placeholder "Name"}))]
     (is (str/includes? out "liquid-glass__text-field"))
-    (is (str/includes? out "shitsuke__input"))
+    (is (str/includes? out "<input"))
     (is (str/includes? out "placeholder=\"Name\""))
-    (is (str/includes? out "liquid-glass__specular"))))
+    (is (str/includes? out "liquid-glass__specular"))
+    (testing "the input carries no class of its own (styled via the wrapper's descendant selector)"
+      (is (not (str/includes? out "shitsuke__input")))))
+  (testing ":act keeps the portable data-act SSR contract"
+    (is (str/includes? (html (c/text-field {:act :chat/send})) "data-act=\"chat/send\""))))
 
 (deftest text-area-test
-  (is (str/includes? (html (c/text-area {:value "hi"})) "liquid-glass__text-area")))
+  (let [hic (c/text-area {:value "hi"})]
+    (is (str/includes? (html hic) "liquid-glass__text-area"))
+    (testing ":value rides as an attribute, not element content (value-as-child
+              makes the textarea silently uncontrolled after mount under React)"
+      (is (= "hi" (get-in hic [2 1 :value])))
+      (is (= 2 (count (nth hic 2))) "textarea node is [:textarea attrs] with no children")))
+  (testing ":rows defaults to 6 and passes through"
+    (is (= 6 (get-in (c/text-area {}) [2 1 :rows])))
+    (is (= 3 (get-in (c/text-area {:rows 3}) [2 1 :rows])))))
 
 (deftest search-field-test
   (let [out (html (c/search-field {:placeholder "Search"}))]
     (is (str/includes? out "liquid-glass__search-field"))
     (is (str/includes? out "liquid-glass__search-icon"))
     (is (str/includes? out "type=\"search\""))))
+
+;; --- keystroke-loss regression (net-babiniku, reagent async rendering) ----
+;; The bug: shitsuke.components/input|textarea emit :value + :on-input, and
+;; reagent's async-rendering-safe controlled-input path only engages for
+;; :value + :on-change — so React restored the DOM to the stale rendered
+;; value after every keystroke, losing all but the last one whenever a
+;; keystroke landed before the next (rAF-batched) render. These tests pin the
+;; fixed contract: stable, shape-identical hiccup with the caller's handler on
+;; :on-change.
+
+(deftest text-field-stable-hiccup-test
+  (let [f (fn [_e] nil)
+        opts {:value "abc" :placeholder "Name" :on-input f :aria-label "Name"}]
+    (testing "equal args yield = hiccup (no gensym/instance-varying parts)"
+      (is (= (c/text-field opts) (c/text-field opts)))
+      (is (= (c/text-area opts) (c/text-area opts)))
+      (is (= (c/search-field opts) (c/search-field opts))))))
+
+(deftest text-field-input-path-stable-test
+  (testing "the input sits at the same index with and without optional opts"
+    (let [path-of (fn [hic] (first (keep-indexed (fn [i x] (when (and (vector? x) (#{:input :textarea} (first x))) i)) hic)))]
+      (is (= 2
+             (path-of (c/text-field {}))
+             (path-of (c/text-field {:value "v" :placeholder "p" :id "i" :disabled true :aria-label "l"}))
+             (path-of (c/text-field {} {:class "extra"}))))
+      (is (= 2
+             (path-of (c/text-area {}))
+             (path-of (c/text-area {:value "v" :rows 3 :maxLength 10}))))
+      (is (= 3
+             (path-of (c/search-field {}))
+             (path-of (c/search-field {:value "v" :placeholder "p"})))))))
+
+(deftest text-field-attrs-passthrough-test
+  (let [f (fn [_e] nil)
+        k (fn [_e] nil)
+        attrs (get-in (c/text-field {:value "v" :on-input f :on-key-down k :disabled true
+                                     :aria-label "Name" :aria-describedby "hint"
+                                     :maxLength 40 :min "1" :type "number" :placeholder "p"})
+                      [2 1])]
+    (testing "caller attrs reach the bare input untouched"
+      (is (= "v" (:value attrs)))
+      (is (= k (:on-key-down attrs)))
+      (is (true? (:disabled attrs)))
+      (is (= "Name" (:aria-label attrs)))
+      (is (= "hint" (:aria-describedby attrs)))
+      (is (= 40 (:maxLength attrs)))
+      (is (= "1" (:min attrs)))
+      (is (= "number" (:type attrs))))
+    (testing ":on-input is attached as :on-change (reagent's async-safe controlled-input path)"
+      (is (= f (:on-change attrs)))
+      (is (not (contains? attrs :on-input))))
+    (testing "no nil-noise attrs (:id/:data-act only when supplied)"
+      (is (not (contains? attrs :id)))
+      (is (not (contains? attrs :data-act))))))
+
+(deftest text-field-on-change-contract-test
+  (let [f (fn [_e] nil)
+        g (fn [_e] nil)]
+    (testing "a caller :on-change passes through untouched"
+      (is (= f (get-in (c/text-field {:value "v" :on-change f}) [2 1 :on-change]))))
+    (testing "explicit :on-input AND :on-change both survive"
+      (let [attrs (get-in (c/text-field {:value "v" :on-input f :on-change g}) [2 1])]
+        (is (= f (:on-input attrs)))
+        (is (= g (:on-change attrs)))))
+    (testing "same mapping on text-area"
+      (let [attrs (get-in (c/text-area {:value "v" :on-input f}) [2 1])]
+        (is (= f (:on-change attrs)))
+        (is (not (contains? attrs :on-input)))))
+    (testing "a supplied nil :value normalizes to a controlled empty string; absent :value stays absent"
+      (is (= "" (get-in (c/text-field {:value nil :on-change f}) [2 1 :value])))
+      (is (not (contains? (get-in (c/text-field {:on-change f}) [2 1]) :value))))))
 
 (deftest menu-select-test
   (let [out (html (c/menu-select [["a" "A"] ["b" "B"]] {:value "a"}))]

@@ -68,7 +68,12 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
 .demo-note code{font-size:12px;background:rgba(0,0,0,.25);padding:1px 5px;border-radius:4px;}
 .demo-lens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
 .demo-footer{color:#fff;opacity:.75;font-size:12px;text-align:center;margin-top:64px;}
-.demo-footer a{color:#fff;}")
+.demo-footer a{color:#fff;}
+@media (max-width:600px){
+.demo-shell{padding:32px 16px 64px}
+.demo-header h1{font-size:22px}
+.demo-header p{font-size:13px}
+}")
 
 (def ^:private specular-js
   "(function(){'use strict';if(typeof document==='undefined'||!window.requestAnimationFrame)return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var script=document.currentScript;function derivedSelector(){var seen=Object.create(null);var marks=document.querySelectorAll('.liquid-glass__specular');for(var i=0;i<marks.length;i++){var host=marks[i].parentElement;if(!host)continue;for(var j=0;j<host.classList.length;j++){var c=host.classList[j];if(c.indexOf('liquid-glass__')===0&&c.indexOf('--')===-1)seen['.'+c]=true;}}return Object.keys(seen).join(',');}var selector=(script&&script.dataset&&script.dataset.lgSelector)||derivedSelector();if(!selector)return;document.documentElement.classList.add('liquid-glass-js');var active=null,pending=null,raf=0;function clearActive(){if(active){active.removeAttribute('data-lg-pointer');active=null;}}function frame(){raf=0;var e=pending;pending=null;if(!e)return;var host=e.target&&e.target.closest?e.target.closest(selector):null;if(host!==active)clearActive();if(!host)return;var r=host.getBoundingClientRect();if(!r.width||!r.height)return;var x=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));var y=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));host.style.setProperty('--liquid-glass-pointer-x',x.toFixed(3));host.style.setProperty('--liquid-glass-pointer-y',y.toFixed(3));host.setAttribute('data-lg-pointer','');active=host;}document.addEventListener('pointermove',function(e){pending=e;if(!raf)raf=requestAnimationFrame(frame);},{passive:true});document.addEventListener('pointerleave',clearActive,{passive:true});})();")

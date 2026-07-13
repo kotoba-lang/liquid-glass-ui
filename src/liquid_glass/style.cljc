@@ -180,8 +180,12 @@
 
 (defn- button-rules []
   [[".liquid-glass__button,.liquid-glass__icon-button"
+    ;; min-height 44px: Apple HIG minimum tap-target — padding alone leaves the
+    ;; computed height under 44px at default type sizes (design-quality
+    ;; :tap-targets axis, kotoba-lang/kotoba-ui#3 follow-up).
     (merge {:overflow "hidden" :display "inline-flex" :align-items "center" :justify-content "center"
-            :gap ".4em" :padding ".6em 1.1em" :border-radius "var(--liquid-glass-radius-pill)" :cursor "pointer"}
+            :gap ".4em" :padding ".6em 1.1em" :min-height "44px"
+            :border-radius "var(--liquid-glass-radius-pill)" :cursor "pointer"}
            (glass-bg-decls :regular) (glass-shadow-decls :raised))]
    [".liquid-glass__icon-button" {:padding ".55em" :aspect-ratio "1"}]
    [".liquid-glass__button:hover,.liquid-glass__icon-button:hover"
@@ -287,8 +291,11 @@
    [".liquid-glass__checkbox-input:checked ~ .liquid-glass__checkbox-box"
     {:background "var(--liquid-glass-accent-tint-strong)" :border-color "var(--liquid-glass-accent-tint-strong)"}]
    [".liquid-glass__checkbox-input:checked ~ .liquid-glass__checkbox-box::after"
+    ;; glyph sized in em (0.8125em = 13px at 16px root) so a sub-16px px
+    ;; font-size never sits on an input pseudo-element (design-quality
+    ;; :input-zoom heuristic, kotoba-lang/kotoba-ui#3 follow-up); same visual size.
     {:content "\"✓\"" :position "absolute" :inset "0" :display "flex" :align-items "center"
-     :justify-content "center" :font-size "13px" :color "#fff"}]
+     :justify-content "center" :font-size "0.8125em" :color "#fff"}]
    [".liquid-glass__radio-input:checked ~ .liquid-glass__radio-box"
     {:border-color "var(--liquid-glass-accent-tint-strong)"}]
    [".liquid-glass__radio-input:checked ~ .liquid-glass__radio-box::after"

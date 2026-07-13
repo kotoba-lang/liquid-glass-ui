@@ -17,9 +17,10 @@
 
 (def ^:private page-css
   "html{min-height:100%}
-body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+body{margin:0;min-height:100vh;min-height:100dvh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
      color:#1c1c1e;background:linear-gradient(135deg,#ff6b6b 0%,#f7b733 22%,#4ecdc4 48%,#556fb5 72%,#7b2ff7 100%);
      background-attachment:fixed;}
+.liquid-glass__nav-bar{padding-top:env(safe-area-inset-top,0px)}
 .demo-shell{max-width:960px;margin:0 auto;padding:48px 24px 96px;}
 .demo-header{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.35);margin-bottom:36px;}
 .demo-header h1{font-size:28px;margin:0 0 10px;}
@@ -93,7 +94,9 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
   [:html {:lang "en"}
    [:head
     [:meta {:charset "utf-8"}]
-    [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+    [:meta {:name "viewport" :content "width=device-width, initial-scale=1, viewport-fit=cover"}]
+    [:meta {:name "theme-color" :content "#ff6b6b" :media "(prefers-color-scheme: light)"}]
+    [:meta {:name "theme-color" :content "#0b0b10" :media "(prefers-color-scheme: dark)"}]
     [:title "liquid-glass-ui — kotoba-lang"]
     [:link {:rel "icon" :href "data:,"}]
     ;; library CSS inside @layer kotoba.glass; the page's own CSS below stays

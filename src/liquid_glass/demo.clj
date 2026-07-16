@@ -10,15 +10,17 @@
   tag and the page loses only the pointer highlight.
 
   Usage: clojure -M -m liquid-glass.demo"
-  (:require [shitsuke.hiccup :as h]
+  (:require [clojure.java.io :as io]
+            [shitsuke.hiccup :as h]
             [liquid-glass.style :as s]
             [liquid-glass.components :as lg]))
 
 (def ^:private page-css
   "html{min-height:100%}
-body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+body{margin:0;min-height:100vh;min-height:100dvh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
      color:#1c1c1e;background:linear-gradient(135deg,#ff6b6b 0%,#f7b733 22%,#4ecdc4 48%,#556fb5 72%,#7b2ff7 100%);
      background-attachment:fixed;}
+.liquid-glass__nav-bar{padding-top:env(safe-area-inset-top,0px)}
 .demo-shell{max-width:960px;margin:0 auto;padding:48px 24px 96px;}
 .demo-header{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.35);margin-bottom:36px;}
 .demo-header h1{font-size:28px;margin:0 0 10px;}
@@ -67,7 +69,12 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
 .demo-note code{font-size:12px;background:rgba(0,0,0,.25);padding:1px 5px;border-radius:4px;}
 .demo-lens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
 .demo-footer{color:#fff;opacity:.75;font-size:12px;text-align:center;margin-top:64px;}
-.demo-footer a{color:#fff;}")
+.demo-footer a{color:#fff;}
+@media (max-width:600px){
+.demo-shell{padding:32px 16px 64px}
+.demo-header h1{font-size:22px}
+.demo-header p{font-size:13px}
+}")
 
 (def ^:private specular-js
   "(function(){'use strict';if(typeof document==='undefined'||!window.requestAnimationFrame)return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var script=document.currentScript;function derivedSelector(){var seen=Object.create(null);var marks=document.querySelectorAll('.liquid-glass__specular');for(var i=0;i<marks.length;i++){var host=marks[i].parentElement;if(!host)continue;for(var j=0;j<host.classList.length;j++){var c=host.classList[j];if(c.indexOf('liquid-glass__')===0&&c.indexOf('--')===-1)seen['.'+c]=true;}}return Object.keys(seen).join(',');}var selector=(script&&script.dataset&&script.dataset.lgSelector)||derivedSelector();if(!selector)return;document.documentElement.classList.add('liquid-glass-js');var active=null,pending=null,raf=0;function clearActive(){if(active){active.removeAttribute('data-lg-pointer');active=null;}}function frame(){raf=0;var e=pending;pending=null;if(!e)return;var host=e.target&&e.target.closest?e.target.closest(selector):null;if(host!==active)clearActive();if(!host)return;var r=host.getBoundingClientRect();if(!r.width||!r.height)return;var x=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));var y=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));host.style.setProperty('--liquid-glass-pointer-x',x.toFixed(3));host.style.setProperty('--liquid-glass-pointer-y',y.toFixed(3));host.setAttribute('data-lg-pointer','');active=host;}document.addEventListener('pointermove',function(e){pending=e;if(!raf)raf=requestAnimationFrame(frame);},{passive:true});document.addEventListener('pointerleave',clearActive,{passive:true});})();")
@@ -87,10 +94,14 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Seg
   [:html {:lang "en"}
    [:head
     [:meta {:charset "utf-8"}]
-    [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+    [:meta {:name "viewport" :content "width=device-width, initial-scale=1, viewport-fit=cover"}]
+    [:meta {:name "theme-color" :content "#ff6b6b" :media "(prefers-color-scheme: light)"}]
+    [:meta {:name "theme-color" :content "#0b0b10" :media "(prefers-color-scheme: dark)"}]
     [:title "liquid-glass-ui — kotoba-lang"]
     [:link {:rel "icon" :href "data:,"}]
-    (s/inline-style-hiccup (str (s/root-css) "\n" (s/component-css)))
+    ;; library CSS inside @layer kotoba.glass; the page's own CSS below stays
+    ;; unlayered and therefore always outranks it (the cascade contract).
+    (s/inline-style-hiccup)
     [:style page-css]]
    [:body
     [:div.demo-shell

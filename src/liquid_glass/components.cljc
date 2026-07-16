@@ -5,10 +5,13 @@
 
   liquid-glass-ui owns no interaction/state logic of its own. Every component
   either wraps the matching `shitsuke.components` fn (button/icon-button/
-  toolbar/mode-tabs/card/input/textarea/select keep their exact `act`/
-  `:on-input`/etc. contract; see shitsuke.components docstrings) or, where
-  shitsuke has no equivalent, is a small hiccup literal following the same
-  `data-act` convention.
+  toolbar/mode-tabs/card/select keep their exact `act`/`:on-input`/etc.
+  contract; see shitsuke.components docstrings) or, where shitsuke has no
+  equivalent, is a small hiccup literal following the same `data-act`
+  convention. The one deliberate exception: text-field/text-area/search-field
+  build their native `<input>`/`<textarea>` directly instead of delegating to
+  shitsuke.components/input|textarea — see `control-attrs` for the
+  reagent-keystroke-loss bug that forced this (and the shitsuke follow-up).
 
   Every component whose top-level element IS the glass surface (panel/button/
   toolbar/sheet/text-field/menu-select/nav-bar/alert/menu/list/stepper/…)
@@ -133,33 +136,85 @@
 
 ;; --- form controls -----------------------------------------------------
 
+(defn- control-attrs
+  "Attrs map for a native text control (`<input>`/`<textarea>`), built from
+  caller opts. Every opt passes through untouched (:value :placeholder
+  :on-key-down :disabled :aria-label :aria-describedby :maxLength :min :id
+  :rows ...) except:
+
+  - :class is dropped (it belongs to the *wrapper*; the control itself
+    carries no class hook — the material CSS uses the
+    `.liquid-glass__text-field input` descendant selector),
+  - :act is mapped to :data-act (shitsuke's portable SSR interaction
+    contract),
+  - a caller :on-input is re-attached as :on-change when no :on-change is
+    given (kept as-is when the caller wired both). React's `onChange` on text
+    controls fires on the native `input` event, so the caller-visible
+    semantics (per-keystroke, `(.. e -target -value)`) are identical — but
+    the rename matters under reagent: reagent's async-rendering-safe
+    controlled-input path (reagent.impl.input/input-render-setup) only
+    engages when the props carry BOTH `value` and `onChange`. With
+    :value + :on-input the control is a plain React controlled input under
+    reagent's asynchronous (requestAnimationFrame-batched) re-rendering:
+    after every keystroke React restores the DOM value to the last-*rendered*
+    (stale) prop, so any keystroke that lands before the next render is typed
+    into a reverted field and everything but the last keystroke is lost.
+    Reproduced against reagent 1.2.0/React 18; reported live by net-babiniku
+    (every text field, since its liquid-glass-ui adoption). Root cause lives
+    in shitsuke.components/input|textarea (same :value + :on-input shape) —
+    fixed here by building the control hiccup directly; shitsuke follow-up
+    noted in the PR.
+
+  Also normalizes a present-but-nil :value to \"\" (a controlled control
+  never renders the string \"null\"), and omits :value entirely when the
+  caller didn't pass one (an uncontrolled field stays uncontrolled)."
+  [opts]
+  (let [{:keys [act on-input on-change]} opts]
+    (cond-> (dissoc opts :class :act :on-input)
+      (some? act)                        (assoc :data-act (act->str act))
+      (and on-input (nil? on-change))    (assoc :on-change on-input)
+      (and on-input (some? on-change))   (assoc :on-input on-input)
+      (contains? opts :value)            (update :value #(or % "")))))
+
 (defn text-field
-  "Glass text input. Wraps shitsuke.components/input; same opts (:id, :value,
-  :placeholder, :type, :on-input, :act) plus :class on the *wrapper* (the
-  input itself carries no class hook — style it via the wrapper)."
+  "Glass text input: `[:div.liquid-glass__text-field [:input attrs] specular]`.
+  opts go to the `<input>` via `control-attrs` (full passthrough — :id :value
+  :placeholder :type :on-input/:on-change :on-key-down :disabled :aria-label
+  :aria-describedby :maxLength :min :act ...); :class on the *wrapper* comes
+  from wrap-opts (the input itself carries no class hook — style it via the
+  wrapper). The emitted hiccup is pure data: equal opts produce `=` hiccup,
+  and the `<input>` sits at index 2 regardless of which opts are present, so
+  React/reagent never remounts it across renders."
   ([opts] (text-field opts nil))
   ([opts wrap-opts]
    [:div {:class (cls (s/class-name :text-field) (:class wrap-opts))}
-    (sc/input (dissoc opts :class))
+    [:input (assoc (control-attrs opts) :type (or (:type opts) "text"))]
     (specular)]))
 
 (defn text-area
-  "Glass textarea. Wraps shitsuke.components/textarea; same opts (:id, :value,
-  :rows, :placeholder, :on-input, :act) plus :class on the wrapper."
+  "Glass textarea: `[:div.liquid-glass__text-area [:textarea attrs] specular]`.
+  Same opts contract as `text-field` (plus :rows, default 6). :value rides as
+  an attribute (not element content) so reagent keeps the control in sync with
+  app state — value-as-child made the textarea silently uncontrolled after
+  mount under React. Caveat: shitsuke.hiccup/->html prints :value as an HTML
+  attribute, which browsers ignore on <textarea>, so a *pre-filled* SSR
+  textarea needs a shitsuke.hiccup follow-up; live (reagent) rendering — where
+  the keystroke-loss bug lived — is correct."
   ([opts] (text-area opts nil))
   ([opts wrap-opts]
    [:div {:class (cls (s/class-name :text-area) (:class wrap-opts))}
-    (sc/textarea (dissoc opts :class))
+    [:textarea (assoc (control-attrs opts) :rows (or (:rows opts) 6))]
     (specular)]))
 
 (defn search-field
   "Glass search input: a text-field with a leading search glyph and
-  type=\"search\". Same opts as text-field."
+  type=\"search\". Same opts as text-field; the `<input>` sits at index 3
+  (after the glyph span), fixed regardless of opts."
   ([opts] (search-field opts nil))
   ([opts wrap-opts]
    [:div {:class (cls (s/class-name :search-field) (:class wrap-opts))}
     [:span {:aria-hidden true :class (s/class-name :search-icon)} "⌕"]
-    (sc/input (assoc (dissoc opts :class) :type "search"))
+    [:input (assoc (control-attrs opts) :type "search")]
     (specular)]))
 
 (defn menu-select
@@ -339,6 +394,18 @@
   ([text opts]
    [:span {:role "tooltip" :class (cls (s/class-name :tooltip) (:class opts))} text]))
 
+;; Kaizen (net-babiniku co-scientist round 75): a REAL, live-confirmed accessibility
+;; gap this closes -- found via Playwright's actual accessibility-tree API
+;; (ariaSnapshot), not just visible text. Both `list-view`/`list-row` rendered as
+;; plain `<div>`s with no `role` at all, so a screen reader had no way to expose a
+;; group of rows as a navigable list (item count on entry, next/previous-item
+;; shortcuts) -- every row read as loose, ungrouped text directly under whatever
+;; heading preceded it. Unlike a genuinely general-purpose component (e.g. `avatar`,
+;; fixed at a consumer's call site in a prior round since it has plausible non-list
+;; uses), a component literally named list-view/list-row has no plausible use case
+;; where list semantics would be wrong -- fixed here, upstream, not per-consumer.
+;; `role="list"`/`role="listitem"` is purely additive ARIA (no visual/behavioral
+;; change) and is the standard WAI-ARIA pairing for a list container + its items.
 (defn list-view
   "Glass list container (no shitsuke equivalent). `rows` is a seq of
   `list-row` (or other hiccup) — an empty collection is fine (renders no
@@ -347,7 +414,7 @@
   ([rows opts]
    (let [{:keys [surface class]} opts
          variant (when (and surface (not= surface :regular)) (s/class-name (str "list--" (name surface))))]
-     [:div {:class (str/join " " (remove nil? [(s/class-name :list) variant class]))}
+     [:div {:class (str/join " " (remove nil? [(s/class-name :list) variant class])) :role "list"}
       (seq rows)
       (specular)])))
 
@@ -358,7 +425,7 @@
   ([content] (list-row content nil))
   ([content opts]
    (let [{:keys [act trailing class]} opts]
-     [:div {:class (cls (s/class-name :list-row) class) :data-act (some-> act act->str)}
+     [:div {:class (cls (s/class-name :list-row) class) :data-act (some-> act act->str) :role "listitem"}
       [:div {:class (s/class-name :list-row-content)} content]
       (when trailing [:div {:class (s/class-name :list-row-trailing)} trailing])])))
 

@@ -33,6 +33,40 @@
   (is (str/starts-with? (s/inline-style) "<style>"))
   (is (str/includes? (s/inline-style) ":root {")))
 
+;; --- cascade layer -------------------------------------------------------
+
+(defn- count-char [s ch] (count (filter #(= ch %) s)))
+
+(deftest layered-css-test
+  (let [css (s/layered-css)]
+    (testing "layer-order declaration first (kotoba.hig below kotoba.glass), then the layered block"
+      (is (str/starts-with? css "@layer kotoba.hig, kotoba.glass;"))
+      (is (str/includes? css "@layer kotoba.glass {")))
+    (testing "the whole bundle is inside the layer"
+      (is (str/includes? css ":root {"))
+      (is (str/includes? css "@media (prefers-color-scheme: dark)"))
+      (is (str/includes? css "@supports not (backdrop-filter"))
+      (is (str/includes? css "@media (prefers-reduced-motion: reduce)")))
+    (testing "wrapping keeps the output parseable: balanced braces, closes the layer block"
+      (is (= (count-char css \{) (count-char css \})))
+      (is (str/ends-with? (str/trimr css) "}")))
+    (testing "custom css passes through the same wrapper"
+      (is (= "@layer kotoba.hig, kotoba.glass;\n@layer kotoba.glass {\n.x{color:red}\n}"
+             (s/layered-css ".x{color:red}"))))))
+
+(deftest inline-style-layered-test
+  (testing "the zero-arity SSR embeds now deliver the layered bundle"
+    (let [tag (s/inline-style)]
+      (is (str/includes? tag "@layer kotoba.hig, kotoba.glass;"))
+      (is (str/includes? tag "@layer kotoba.glass {")))
+    (let [[t [raw css]] (s/inline-style-hiccup)]
+      (is (= :style t))
+      (is (= :hiccup/raw raw))
+      (is (str/starts-with? css "@layer kotoba.hig, kotoba.glass;"))))
+  (testing "raw root-css/component-css stay unwrapped for tests/advanced use"
+    (is (not (str/includes? (s/root-css) "@layer")))
+    (is (not (str/includes? (s/component-css) "@layer")))))
+
 ;; --- motion & dynamic effects ------------------------------------------------
 
 (deftest overlay-enter-exit-test
@@ -143,4 +177,17 @@
       (is (str/includes? block "animation: none"))
       (is (str/includes? block ".liquid-glass__alert[data-state=\"closing\"]")))
     (testing "pointer highlight off even when the script added .liquid-glass-js"
-      (is (str/includes? block ".liquid-glass-js .liquid-glass__specular { display: none;")))))
+      (is (str/includes? block ".liquid-glass-js .liquid-glass__specular { display: none;")))
+    (testing "every glass-surface-components root is covered, not a hand-maintained subset
+              that can drift out of sync (found via net-babiniku auditing .liquid-glass__toolbar
+              specifically -- toolbar, sheet, badge, text-field, and several others were
+              missing from the old hardcoded list even though base-rules gives every one of
+              them the same universal transform/box-shadow/filter transition)"
+      (doseq [c ["panel" "button" "icon-button" "toolbar" "sheet" "badge" "text-field"
+                 "text-area" "search-field" "menu-select" "toggle-track" "checkbox-box"
+                 "radio-box" "stepper" "nav-bar" "alert" "menu" "list" "chip" "disclosure"]]
+        (is (str/includes? block (str ".liquid-glass__" c))
+            (str "missing ." (str "liquid-glass__" c) " from the reduced-motion transition:none selector"))))
+    (testing "the nested sub-elements with their OWN separate transition (not glass-surface roots) are still covered"
+      (doseq [c ["tab" "toggle-thumb" "progress-bar-fill" "disclosure-chevron"]]
+        (is (str/includes? block (str ".liquid-glass__" c)))))))

@@ -146,7 +146,8 @@
 (defn specular-selector
   "CSS selector list matching every component root that carries a
   `liquid-glass__specular` marker span — the hosts the optional
-  pointer-tracking enhancer (resources/liquid_glass/specular.js) targets.
+  pointer-tracking enhancer (the reference script inlined by
+  liquid-glass.demo/specular-script; see ADR-0003) targets.
   Public so an embedder can hand it to the script via its `data-lg-selector`
   attribute (the script also derives the same list from the marker spans in
   the document when the attribute is absent) — one source of truth, no
@@ -179,8 +180,12 @@
 
 (defn- button-rules []
   [[".liquid-glass__button,.liquid-glass__icon-button"
+    ;; min-height 44px: Apple HIG minimum tap-target — padding alone leaves the
+    ;; computed height under 44px at default type sizes (design-quality
+    ;; :tap-targets axis, kotoba-lang/kotoba-ui#3 follow-up).
     (merge {:overflow "hidden" :display "inline-flex" :align-items "center" :justify-content "center"
-            :gap ".4em" :padding ".6em 1.1em" :border-radius "var(--liquid-glass-radius-pill)" :cursor "pointer"}
+            :gap ".4em" :padding ".6em 1.1em" :min-height "44px"
+            :border-radius "var(--liquid-glass-radius-pill)" :cursor "pointer"}
            (glass-bg-decls :regular) (glass-shadow-decls :raised))]
    [".liquid-glass__icon-button" {:padding ".55em" :aspect-ratio "1"}]
    [".liquid-glass__button:hover,.liquid-glass__icon-button:hover"
@@ -286,8 +291,11 @@
    [".liquid-glass__checkbox-input:checked ~ .liquid-glass__checkbox-box"
     {:background "var(--liquid-glass-accent-tint-strong)" :border-color "var(--liquid-glass-accent-tint-strong)"}]
    [".liquid-glass__checkbox-input:checked ~ .liquid-glass__checkbox-box::after"
+    ;; glyph sized in em (0.8125em = 13px at 16px root) so a sub-16px px
+    ;; font-size never sits on an input pseudo-element (design-quality
+    ;; :input-zoom heuristic, kotoba-lang/kotoba-ui#3 follow-up); same visual size.
     {:content "\"✓\"" :position "absolute" :inset "0" :display "flex" :align-items "center"
-     :justify-content "center" :font-size "13px" :color "#fff"}]
+     :justify-content "center" :font-size "0.8125em" :color "#fff"}]
    [".liquid-glass__radio-input:checked ~ .liquid-glass__radio-box"
     {:border-color "var(--liquid-glass-accent-tint-strong)"}]
    [".liquid-glass__radio-input:checked ~ .liquid-glass__radio-box::after"
@@ -481,7 +489,9 @@
   ;; Pointer-tracking specular highlight on the `liquid-glass__specular`
   ;; marker span — the seam docs/design.md reserved for "a pointer/device-
   ;; motion-driven highlight position". Everything is gated behind the
-  ;; `.liquid-glass-js` class that resources/liquid_glass/specular.js adds to
+  ;; `.liquid-glass-js` class that the pointer-tracking enhancer script (the
+  ;; reference implementation is inlined in liquid-glass.demo/specular-js,
+  ;; ADR-0003) adds to
   ;; <html>: without the script the span keeps its display:none default and
   ;; nothing changes. The script writes --liquid-glass-pointer-x/-y (0..1,
   ;; relative to the host rect) and toggles [data-lg-pointer] on the hovered
@@ -612,11 +622,25 @@
   presence animation this stylesheet defines is disabled, including the
   [data-state=\"closing\"] exit variants (whose attribute selector would
   otherwise beat a bare class rule on specificity) and the JS pointer
-  highlight (also never attached — specular.js checks the same media query)."
+  highlight (also never attached — the reference enhancer script,
+  liquid-glass.demo/specular-js, checks the same media query).
+
+  The first rule's selector is `glass-surface-components` itself (every root
+  that base-rules gives the universal transform/box-shadow/filter transition
+  to) plus the handful of nested sub-elements that carry their OWN separate
+  transition (tab, toggle-thumb, progress-bar-fill, disclosure-chevron —
+  none of those four are glass-surface roots themselves). Previously this
+  was a hand-maintained subset (panel/button/icon-button/tab/toggle-track/
+  toggle-thumb/progress-bar-fill/disclosure-chevron) that had drifted out of
+  sync with glass-surface-components as new components were added — toolbar
+  (and sheet/badge/text-field/text-area/search-field/menu-select/checkbox-
+  box/radio-box/stepper/nav-bar/alert/menu/list/chip/disclosure) still
+  carried a live transition under reduced-motion. Found auditing
+  net-babiniku's nav bar (kotoba-lang/liquid-glass-ui#1)."
   []
   (css/media "(prefers-reduced-motion: reduce)"
-             [[(sel ["panel" "button" "icon-button" "tab" "toggle-track" "toggle-thumb"
-                     "progress-bar-fill" "disclosure-chevron"])
+             [[(sel (concat glass-surface-components
+                            ["tab" "toggle-thumb" "progress-bar-fill" "disclosure-chevron"]))
                {:transition "none"}]
               [(sel overlay-components) {:animation "none"}]
               [(sel overlay-components "[data-state=\"closing\"]") {:animation "none"}]
@@ -644,27 +668,49 @@
    "\n" (lens-supports-css)
    "\n" (reduced-motion-css)))
 
+;; --- cascade layer -----------------------------------------------------
+;;
+;; All library CSS is delivered inside the `kotoba.glass` cascade layer.
+;; Per the CSS cascade spec, *unlayered* author CSS beats *layered* author
+;; CSS regardless of source order or selector specificity — so a consumer's
+;; own stylesheet always wins over this library's rules, even when the
+;; library `<style>` is injected at runtime AFTER the app's. This kills the
+;; specificity wars consumers previously fought (net-babiniku carried ~100
+;; lines of compound-selector overrides like
+;; `.liquid-glass__toolbar.app-toolbar` purely to out-specify this library).
+;; Apps must NOT write
+;; compound selectors against `liquid-glass__*` classes to win specificity
+;; anymore — a plain class selector in unlayered app CSS is enough.
+
 (def layer-order
-  "Cascade-layer order declaration (must match shitsuke.hig/layer-order-css).
-  kotoba-ui.theme/theme-css emits this once at the top, then strips the copy
-  that layered-css prefixes onto the glass bundle."
+  "The cascade-layer order declaration emitted before the layered bundle:
+  `kotoba.hig` (shitsuke's base layer — declaring it here is harmless if
+  unused, and pins the relative order when both skins are on a page) below
+  `kotoba.glass` (this library). Unlayered app CSS outranks both."
   "@layer kotoba.hig, kotoba.glass;")
 
 (defn layered-css
-  "Wrap glass CSS in `@layer kotoba.glass`, prepended with `layer-order` so
-  standalone consumers get a complete cascade-layer preamble, while
-  kotoba-ui.theme/theme-css can strip the order line (already emitted once)
-  and keep a single declaration site."
-  [css]
-  (str layer-order "\n@layer kotoba.glass {\n" css "\n}\n"))
+  "The full material bundle — `root-css` + `component-css` — wrapped in
+  `@layer kotoba.glass { ... }`, preceded by the `layer-order` declaration.
+  This is the string consumers should inject (or embed via `inline-style` /
+  `inline-style-hiccup`, which default to it). Nested at-rules (`@media`,
+  `@supports`, `@keyframes`) are valid inside `@layer`, so the whole bundle
+  wraps as-is. The raw unwrapped `root-css` / `component-css` stay public for
+  tests and advanced pipelines that do their own layering."
+  ([] (layered-css (str (root-css) "\n" (component-css))))
+  ([css] (str layer-order "\n@layer kotoba.glass {\n" css "\n}")))
 
 (defn inline-style
-  "Wrap CSS in a <style> tag for inline SSR embedding."
-  ([] (inline-style (str (root-css) "\n" (component-css))))
+  "Wrap CSS in a <style> tag for inline SSR embedding. The 0-arity embeds the
+  layered bundle (`layered-css`) — use it (or pass `(layered-css ...)`
+  yourself) so app CSS stays authoritative; pass raw CSS only when you are
+  doing your own layering."
+  ([] (inline-style (layered-css)))
   ([css] (str "<style>\n" css "\n</style>")))
 
 (defn inline-style-hiccup
   "Hiccup form of inline-style: [:style [:hiccup/raw css]] — the raw form is
-  understood by shitsuke.hiccup/->html so the CSS is not escaped."
-  ([] (inline-style-hiccup (str (root-css) "\n" (component-css))))
+  understood by shitsuke.hiccup/->html so the CSS is not escaped. The 0-arity
+  embeds the layered bundle (`layered-css`), same contract as inline-style."
+  ([] (inline-style-hiccup (layered-css)))
   ([css] [:style [:hiccup/raw css]]))

@@ -122,8 +122,14 @@ Two-tier, same split as `shitsuke.style`:
      same as overriding any other CSS default.
 - `(class-name component)` → `"liquid-glass__<component>"` (also accepts
   `"panel--thick"`-shaped modifier names).
+- `(layered-css css?)` — the full bundle (`root-css` + `component-css`)
+  wrapped in the `kotoba.glass` cascade layer, preceded by the
+  `@layer kotoba.hig, kotoba.glass;` order declaration. **This is the string
+  consumers inject** — see "Styling contract" below for the cascade
+  guarantees. `root-css`/`component-css` stay public unwrapped for tests and
+  pipelines that do their own layering.
 - `(inline-style css?)` / `(inline-style-hiccup css?)` — `<style>` wrapper for
-  SSR embedding (defaults to `root-css` + `component-css` concatenated).
+  SSR embedding (defaults to the layered bundle, `layered-css`).
 
 ## Layer 3 — `liquid-glass.components`
 
@@ -156,8 +162,23 @@ and why.
 | fn | based on | shape |
 |---|---|---|
 | `button` / `icon-button` | `shitsuke.components/button` / `icon-button` | same opts (`:act`, `:disabled`, `:title`, `:type`, `:class`) |
-| `text-field` / `text-area` | `shitsuke.components/input` / `textarea` | same opts, wrapped in a glass field |
+| `text-field` / `text-area` | — (native `<input>`/`<textarea>` built directly; formerly `shitsuke.components/input`/`textarea`, see below) | `(opts wrap-opts?)` — full attr passthrough (`:value` `:placeholder` `:type` `:on-input`/`:on-change` `:on-key-down` `:disabled` `:aria-label` `:aria-describedby` `:maxLength` `:min` `:rows` `:act` ...); `:class` on the wrapper via wrap-opts |
 | `search-field` | (text-field + leading glyph) | same opts as `text-field` |
+
+> **Why text-field/text-area stopped delegating to shitsuke**: shitsuke's
+> `input`/`textarea` emit `:value` + `:on-input`, but reagent's
+> async-rendering-safe controlled-input path only engages for `:value` +
+> `:on-change` — under reagent's rAF-batched rendering React restores the DOM
+> to the stale rendered value after every keystroke, so typing faster than
+> the app re-renders **loses every keystroke but the last** (found live in
+> net-babiniku on every text field). The controls are now built directly:
+> stable shape (`[:div.liquid-glass__<c> [:input attrs] specular]`, the
+> control always at the same index), full attr passthrough, and a caller
+> `:on-input` is attached as `:on-change` (same native `input` event, same
+> per-keystroke `(.. e -target -value)` semantics — but reagent's fix
+> engages). `:value` also rides as an attribute on `text-area` (shitsuke
+> passed it as element content, which React only reads at mount — the
+> textarea silently stopped following app state).
 | `menu-select` | `shitsuke.components/select` | `(options opts?)` — same opts as shitsuke `select` |
 | `toggle` | — | `(opts?)` — `:checked`, `:on-change`/`:act`, `:disabled` (native `<input type=checkbox>`, glass track+thumb sibling) |
 | `checkbox` / `radio` | — | `(label? opts?)` — `radio` groups via `:group` (same-named native `name`) |
@@ -209,12 +230,38 @@ deps" contract can own without picking a specific runtime.
 
 ## Styling contract
 
-A consumer emits `liquid-glass.style/root-css` + `component-css` once per
-page/app (SSR `<style>` or prepended into a browser build's CSS output,
-mirroring `slides.build`'s handling of `shitsuke.tokens/css-variables`).
-Components never carry inline visual style — only stable classes + `var(...)`
-references, so overriding the material (a themed consumer, a different
-surface tint) is a token-override problem, not a component-code problem.
+A consumer emits `liquid-glass.style/layered-css` once per page/app (SSR
+`<style>` via `inline-style`/`inline-style-hiccup`, or prepended into a
+browser build's CSS output, mirroring `slides.build`'s handling of
+`shitsuke.tokens/css-variables`). Components never carry inline visual style
+— only stable classes + `var(...)` references, so overriding the material (a
+themed consumer, a different surface tint) is a token-override problem, not a
+component-code problem.
+
+### Cascade layer: `@layer kotoba.hig, kotoba.glass`
+
+All library CSS ships inside the **`kotoba.glass` cascade layer**, preceded
+by the order declaration `@layer kotoba.hig, kotoba.glass;` (`kotoba.hig` is
+shitsuke's base layer — declared here so the relative order is pinned when
+both are on a page; harmless if unused). The contract:
+
+- **App CSS stays unlayered — and therefore always wins.** Per the CSS
+  cascade, unlayered author styles outrank all layered author styles
+  regardless of source order or selector specificity. It no longer matters
+  that this library's `<style>` is injected at runtime *after* the app's.
+- **Apps must never write compound selectors against `liquid-glass__*` to
+  win specificity fights anymore.** A plain `.liquid-glass__toolbar { ... }`
+  (or the app's own class) in unlayered app CSS beats the library's layered
+  rule outright — the ~100 lines of `.liquid-glass__toolbar.app-toolbar`-style
+  compound overrides net-babiniku carried are exactly the pattern this
+  retires.
+- Within the bundle nothing changes: the internal cascade tricks
+  (`@supports` upgrades, the trailing `prefers-reduced-motion` guard) keep
+  their relative order inside the layer, and nested at-rules are valid inside
+  `@layer`.
+- `root-css`/`component-css` remain available unwrapped for tests, data-level
+  assertions, and consumers with their own layer scheme — but injecting them
+  raw re-opens the specificity war; prefer `layered-css`.
 
 ## Motion & dynamic effects
 

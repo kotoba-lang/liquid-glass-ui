@@ -644,6 +644,20 @@
    "\n" (lens-supports-css)
    "\n" (reduced-motion-css)))
 
+(def layer-order
+  "Cascade-layer order declaration (must match shitsuke.hig/layer-order-css).
+  kotoba-ui.theme/theme-css emits this once at the top, then strips the copy
+  that layered-css prefixes onto the glass bundle."
+  "@layer kotoba.hig, kotoba.glass;")
+
+(defn layered-css
+  "Wrap glass CSS in `@layer kotoba.glass`, prepended with `layer-order` so
+  standalone consumers get a complete cascade-layer preamble, while
+  kotoba-ui.theme/theme-css can strip the order line (already emitted once)
+  and keep a single declaration site."
+  [css]
+  (str layer-order "\n@layer kotoba.glass {\n" css "\n}\n"))
+
 (defn inline-style
   "Wrap CSS in a <style> tag for inline SSR embedding."
   ([] (inline-style (str (root-css) "\n" (component-css))))

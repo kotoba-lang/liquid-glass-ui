@@ -175,11 +175,24 @@
   ([overrides] (str ":root {\n" (tokens->body (resolve-tokens overrides)) "\n}")))
 
 (defn dark-css-variables
-  "Emit a `@media (prefers-color-scheme: dark) { :root { ... } }` CSS string
-  that re-declares only the scheme-sensitive custom properties (dark-tokens
-  merged with dark-overrides)."
+  "Dark-appearance var blocks, three ways (mirrors shitsuke.hig's
+  dark-css-variables — the two token layers must agree on how dark is
+  selected, or a page that FORCES dark via `data-appearance=\"dark\"` gets
+  hig's dark labels but light-mode glass ink; net-babiniku shipped exactly
+  that: #1c1c1e ink on forced-dark glass, an invisible chat panel for every
+  visitor whose OS was in light mode):
+  1. `@media (prefers-color-scheme: dark) { :root {...} }` — OS preference.
+  2. `:root[data-appearance=\"dark\"] {...}` — page forces dark.
+  3. `:root[data-appearance=\"light\"] {...}` — forced light beats the dark
+     media query (the attribute selector out-specifies bare `:root`)."
   ([] (dark-css-variables nil))
-  ([dark-overrides]
-   (str "@media (prefers-color-scheme: dark) {\n:root {\n"
-        (tokens->body (resolve-dark-tokens dark-overrides))
-        "\n}\n}")))
+  ([dark-overrides] (dark-css-variables nil dark-overrides))
+  ([overrides dark-overrides]
+   (let [dark-body (tokens->body (resolve-dark-tokens dark-overrides))
+         ;; forced-light resets only the scheme-sensitive groups, shaped by
+         ;; the same overrides the light :root block was built from
+         light-body (tokens->body (select-keys (resolve-tokens overrides)
+                                               (keys (resolve-dark-tokens nil))))]
+     (str "@media (prefers-color-scheme: dark) {\n:root {\n" dark-body "\n}\n}\n"
+          ":root[data-appearance=\"dark\"] {\n" dark-body "\n}\n"
+          ":root[data-appearance=\"light\"] {\n" light-body "\n}"))))

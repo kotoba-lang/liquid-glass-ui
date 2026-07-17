@@ -78,4 +78,14 @@
     (testing "scheme-independent groups are not redeclared in the dark block"
       (is (not (str/includes? css "--liquid-glass-radius-")))
       (is (not (str/includes? css "--liquid-glass-motion-")))
-      (is (not (str/includes? css "--liquid-glass-lens-"))))))
+      (is (not (str/includes? css "--liquid-glass-lens-"))))
+    (testing "forced appearance attributes mirror the media query (a page that
+              sets data-appearance=\"dark\" must get dark ink even on a light-
+              mode OS — hig already emits these scopes; the two token layers
+              must agree)"
+      (is (str/includes? css ":root[data-appearance=\"dark\"]"))
+      (is (str/includes? css ":root[data-appearance=\"light\"]"))
+      (let [forced-dark (second (str/split css #":root\[data-appearance=\"dark\"\]"))]
+        (is (str/includes? forced-dark "--liquid-glass-ink-default: #f5f5f7;")))
+      (let [forced-light (second (str/split css #":root\[data-appearance=\"light\"\]"))]
+        (is (str/includes? forced-light "--liquid-glass-ink-default: #1c1c1e;"))))))

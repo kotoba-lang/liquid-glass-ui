@@ -535,7 +535,7 @@
                 overlay-motion-rules specular-pointer-rules lens-rules])))
 
 (def ^:private motion-keyframes
-  "@keyframes for the overlay presence transitions (plus the spinner). Frame
+  "CSS @keyframes for the overlay presence transitions (plus the spinner). Frame
   offsets reference --liquid-glass-motion-overlay-enter-* custom properties —
   custom properties are legal inside keyframes and resolve per element, so the
   distances/scales stay tokens, not literals. Exit frames mirror enter (the
@@ -561,8 +561,8 @@
      "liquid-glass-tooltip-exit"  {0 {:opacity "1"} 100 {:opacity "0"}}}))
 
 (defn- supports-fallback-css
-  "@supports isn't a CSS *rule* in css.core's sense (it's an at-rule wrapping
-  other rules, like @media, but css.core/media hardcodes the `@media` prefix)
+  "CSS @supports isn't a CSS *rule* in css.core's sense (it's an at-rule wrapping
+  other rules, like CSS @media, but css.core/media hardcodes the `@media` prefix)
   — built directly with css.core/rule for the inner block so the declaration
   side stays data-driven even though the at-rule wrapper is a literal string."
   []

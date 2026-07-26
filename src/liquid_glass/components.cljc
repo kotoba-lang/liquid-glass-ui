@@ -466,7 +466,7 @@
   0×0, aria-hidden and paints nothing itself. Engines whose backdrop-filter
   accepts url() (Chromium — partial; see docs/design.md \"Motion & dynamic
   effects\") composite the displacement into the glass backdrop via the
-  @supports upgrade in liquid-glass.style; everything else keeps the plain
+  CSS @supports upgrade in liquid-glass.style; everything else keeps the plain
   blur fallback, so this is safe to emit unconditionally but the *class* is
   opt-in per showcase surface (displacement over a live backdrop is not free).
 

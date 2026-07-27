@@ -106,6 +106,16 @@ that pattern is obsolete. Raw `root-css`/`component-css` remain available
 unwrapped for tests and custom layering pipelines. See
 `docs/design.md` § "Styling contract".
 
+## `.kotoba` form-A port (ADR-2607270100 §10)
+
+`kotoba/tokens_core.kotoba` ports the pure token → CSS-string pipeline
+(`--liquid-glass-*` emission, light `:root` + dark `@media` redeclare).
+Component hiccup wrappers, `style.cljc` EDN→`css.core` rules, and
+`spring-linear-easing` (f64 Math) stay on the `.cljc` side. Consumer APIs
+are unchanged — this is an oracle-backed experiment ahead of W4 recursive
+values, not the final API. Byte-equality is gated by
+`test/liquid_glass/kotoba_parity_test.clj` (compiler is test-only).
+
 ## Tests
 
 ```bash

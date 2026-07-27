@@ -14,8 +14,16 @@
          :git/sha "e8bb830b69aa1a726bb79dbd28f098f0875db673"}}
  :aliases
  {:test  {:extra-paths ["test"]
+          ;; kotoba-lang/compiler is TEST-ONLY, for the form-A parity gate that
+          ;; compiles kotoba/tokens_core.kotoba and requires byte-identical
+          ;; CSS-var emission to liquid-glass.tokens (ADR-2607270100 §10).
+          ;; The library itself has no runtime dependency on it. Component
+          ;; hiccup wrappers and style.cljc stay on the .cljc side.
           :extra-deps {io.github.cognitect-labs/test-runner
-                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                       io.github.kotoba-lang/compiler
+                       {:git/url "https://github.com/kotoba-lang/compiler.git"
+                        :git/sha "892d3ddb84e4c7b4f824276a0c24ffd46bf7b89c"}}
           :main-opts ["-m" "cognitect.test-runner"]
           :exec-fn cognitect.test-runner.api/test}
   :local {:override-deps {io.github.kotoba-lang/shitsuke {:local/root "../shitsuke"}

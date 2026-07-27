@@ -11,7 +11,7 @@
  :deps {io.github.kotoba-lang/shitsuke {:local/root "../shitsuke"}
         io.github.kotoba-lang/css
         {:git/url "https://github.com/kotoba-lang/css.git"
-         :git/sha "e8bb830b69aa1a726bb79dbd28f098f0875db673"}}
+         :git/sha "fd5b15dc8a213c852fe822a24766fc5a18ba1443"}}
  :aliases
  {:test  {:extra-paths ["test"]
           ;; kotoba-lang/compiler is TEST-ONLY, for the form-A parity gate that

@@ -1,0 +1,153 @@
+(ns liquid-glass.kotoba-document-parity-test
+  "Delivery 6 fourth cutover for liquid-glass-ui
+  (css → html → shitsuke → **liquid-glass-ui** → kotoba-ui):
+
+  Logical token-group `:document` → `--liquid-glass-*` stream with form-A
+  tokens_core byte parity, light+dark samples, and print/read identity.
+  Form-A remains oracle; consumer APIs unchanged. spring-linear-easing
+  and component hiccup stay host-side."
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
+            [kotoba.compiler.core :as compiler]
+            [kotoba.kir :as ir]
+            [kotoba.kir.value :as value]
+            [liquid-glass.tokens :as tokens]))
+
+(def form-a-source (slurp "kotoba/tokens_core.kotoba"))
+(def document-source (slurp "kotoba/tokens_document.kotoba"))
+(def ^:private fuel 65536)
+
+(defn- kotoba-literal [s]
+  (str \" (-> s (str/replace "\\" "\\\\") (str/replace "\"" "\\\"")) \"))
+
+(defn- typed-map-literal [m]
+  (str "(typed-map-new [:map :keyword :string] "
+       (str/join " " (mapcat (fn [[k v]] [(pr-str k) (kotoba-literal (str v))])
+                             (sort-by (comp str key) m)))
+       ")"))
+
+(defn- entries-vector [m]
+  (str "(document-vector "
+       (str/join " "
+                 (map (fn [[k v]]
+                        (str "(entry " (pr-str k) " " (kotoba-literal (str v)) ")"))
+                      (sort-by (comp str key) m)))
+       ")"))
+
+(defn- compile-and-run [port-source cases]
+  (let [defs (for [[name body] cases]
+               (str "(defn " name " [] :string " body ")"))
+        kir (:kir (compiler/compile-source
+                   (str port-source "\n" (str/join "\n" defs))
+                   :js-kotoba-v1))]
+    (into {} (map (fn [[name _]]
+                    [name (ir/execute kir (symbol name) [] {:fuel fuel})])
+                  cases))))
+
+(defn- cljc-scalar-group-css [group m]
+  (->> (sort-by (comp str key) m)
+       (map (fn [[k v]]
+              (str "  --liquid-glass-" (name group) "-" (name k) ": " v ";")))
+       (str/join "\n")))
+
+(defn- cljc-nested-css [group k props]
+  (->> (sort-by (comp str key) props)
+       (map (fn [[pk pv]]
+              (str "  --liquid-glass-" (name group) "-" (name k) "-" (name pk) ": " pv ";")))
+       (str/join "\n")))
+
+(deftest document-primitives-and-groups-match-form-a
+  (let [radius (into (sorted-map) (get tokens/default-tokens :liquid-glass/radius))
+        accent (into (sorted-map) (get tokens/default-tokens :liquid-glass/accent))
+        lens (into (sorted-map) (get tokens/default-tokens :liquid-glass/lens))
+        ink (into (sorted-map) (get tokens/default-tokens :liquid-glass/ink))
+        form-a (compile-and-run
+                form-a-source
+                {"c_var" "(css-var-name \"radius\" \"pill\")"
+                 "c_decl" "(scalar-decl \"ink\" \"default\" \"#1c1c1e\")"
+                 "n_decl" "(nested-decl \"surface\" \"regular\" \"blur\" \"20px\")"
+                 "root" "(root-css (scalar-decl \"ink\" \"default\" \"#1c1c1e\"))"
+                 "dark" "(dark-root-css (scalar-decl \"ink\" \"default\" \"#f5f5f7\"))"
+                 "radius" (str "(group-css \"radius\" " (typed-map-literal radius) ")")
+                 "accent" (str "(group-css \"accent\" " (typed-map-literal accent) ")")
+                 "lens" (str "(group-css \"lens\" " (typed-map-literal lens) ")")
+                 "ink" (str "(group-css \"ink\" " (typed-map-literal ink) ")")})
+        docs (compile-and-run
+              document-source
+              {"radius" (str "(render-group (group-doc \"radius\" " (entries-vector radius) "))")
+               "accent" (str "(render-group (group-doc \"accent\" " (entries-vector accent) "))")
+               "lens" (str "(render-group (group-doc \"lens\" " (entries-vector lens) "))")
+               "ink" (str "(render-group (group-doc \"ink\" " (entries-vector ink) "))")
+               "root" "(root-css (render-group (group-doc \"ink\" (document-vector (entry :default \"#1c1c1e\")))))"
+               "dark" "(dark-root-css (render-group (group-doc \"ink\" (document-vector (entry :default \"#f5f5f7\")))))"
+               "c_decl" "(render-group (group-doc \"ink\" (document-vector (entry :default \"#1c1c1e\"))))"
+               "n_decl" "(render-group (nested-doc \"surface\" \"regular\" (document-vector (entry :blur \"20px\"))))"})]
+    (testing "form-A primitives still green"
+      (is (= "--liquid-glass-radius-pill" (get form-a "c_var")))
+      (is (= "  --liquid-glass-ink-default: #1c1c1e;" (get form-a "c_decl")))
+      (is (= "  --liquid-glass-surface-regular-blur: 20px;" (get form-a "n_decl"))))
+    (testing "document groups ≡ form-A ≡ key-sorted cljc"
+      (is (= (cljc-scalar-group-css "radius" radius)
+             (get form-a "radius") (get docs "radius")))
+      (is (= (cljc-scalar-group-css "accent" accent)
+             (get form-a "accent") (get docs "accent")))
+      (is (= (cljc-scalar-group-css "lens" lens)
+             (get form-a "lens") (get docs "lens")))
+      (is (= (cljc-scalar-group-css "ink" ink)
+             (get form-a "ink") (get docs "ink"))))
+    (testing "root wrappers"
+      (is (= (get form-a "root") (get docs "root")))
+      (is (= (get form-a "dark") (get docs "dark"))))
+    (testing "single-line decls via document path"
+      (is (= (get form-a "c_decl") (get docs "c_decl")))
+      (is (= (get form-a "n_decl") (get docs "n_decl"))))))
+
+(deftest document-nested-and-samples-match-form-a
+  (let [regular (into (sorted-map)
+                      (get-in tokens/default-tokens [:liquid-glass/surface :regular]))
+        press (into (sorted-map)
+                    (map (fn [[k v]] [k (str v)])
+                         (get-in tokens/default-tokens [:liquid-glass/motion :press])))
+        form-a (compile-and-run
+                form-a-source
+                {"regular" (str "(nested-css \"surface\" \"regular\" " (typed-map-literal regular) ")")
+                 "press" (str "(nested-css \"motion\" \"press\" " (typed-map-literal press) ")")
+                 "light" "(sample-light-root)"
+                 "dark" "(sample-dark-root)"})
+        docs (compile-and-run
+              document-source
+              {"regular" (str "(render-group (nested-doc \"surface\" \"regular\" "
+                              (entries-vector regular) "))")
+               "press" (str "(render-group (nested-doc \"motion\" \"press\" "
+                            (entries-vector press) "))")
+               "light" "(sample-light-root)"
+               "dark" "(sample-dark-root)"})]
+    (is (= (cljc-nested-css "surface" "regular" regular)
+           (get form-a "regular") (get docs "regular")))
+    (is (= (cljc-nested-css "motion" "press" press)
+           (get form-a "press") (get docs "press")))
+    (is (= (get form-a "light") (get docs "light")))
+    (is (= (get form-a "dark") (get docs "dark")))
+    (is (str/includes? (get docs "light") "--liquid-glass-surface-regular-blur: 20px;"))
+    (is (str/includes? (get docs "dark") "--liquid-glass-ink-default: #f5f5f7;"))))
+
+(deftest liquid-glass-token-document-identity
+  (let [source (str document-source "\n"
+                    "(defn g [] :document (sample-radius-doc))\n"
+                    "(defn g-css [] :string (render-group (g)))\n"
+                    "(defn g-dig [] :string (group-digest (g)))\n"
+                    "(defn g-print [] :string (group-print (g)))\n"
+                    "(defn round-ok [] :bool\n"
+                    "  (document-equal? (g) (group-read (group-print (g)))))\n"
+                    "(defn dig-stable [] :i64\n"
+                    "  (if (string=? (group-digest (g))\n"
+                    "               (group-digest (group-read (group-print (g))))) 1 0))\n")
+        kir (:kir (compiler/compile-source source :js-kotoba-v1))
+        run (fn [sym] (ir/execute kir sym [] {:fuel fuel}))
+        dig (run 'g-dig)
+        printed (run 'g-print)]
+    (is (str/includes? (run 'g-css) "--liquid-glass-radius-pill: 999px;"))
+    (is (or (true? (run 'round-ok)) (= 1 (run 'round-ok)) (= 1N (run 'round-ok))))
+    (is (= 1 (run 'dig-stable)))
+    (is (re-matches #"[0-9a-f]{64}" dig))
+    (is (= dig (value/document-sha256-hex (value/document-read printed))))))

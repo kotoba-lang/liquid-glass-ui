@@ -8,6 +8,15 @@
   `90-docs/adr/2606301900-kotoba-lang-shitsuke-design-system.md`,
   `orgs/kotoba-lang/shitsuke`, `orgs/kotoba-lang/ui`, `orgs/kotoba-lang/webgpu`
 
+## Addendum — `.kotoba` form-A string pipeline (2026-07-27)
+
+Per ADR-2607270100 §10 / ADR-2607279200 Delivery #6, `kotoba/tokens_core.kotoba`
+ports the pure token → CSS custom-property pipeline (light + dark). Component
+hiccup and `style.cljc` EDN→css.core rules stay on the host `.cljc` side.
+Consumer APIs are unchanged. Byte-equality is gated by
+`test/liquid_glass/kotoba_parity_test.clj`. Oracle-backed experiment ahead of
+W4; not the final material API.
+
 ## 背景
 
 `shitsuke` は kotoba-lang 共通 UI design system（token IR + hiccup renderer +

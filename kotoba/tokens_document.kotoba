@@ -1,25 +1,47 @@
-(ns liquid-glass-tokens-document)
+(ns liquid-glass-tokens-document
+  ;; Delivery 6 fourth cutover (css → html → shitsuke → **liquid-glass-ui**):
+  ;; Logical token-group `:document` → `--liquid-glass-*` CSS-var stream.
+  ;; Form-A `tokens_core.kotoba` remains oracle. ≤4 value params on recursion.
+  ;; Capability-free (kotoba/pure). spring-linear-easing stays host-side.
+  ;;
+  ;; T5.2 + document-in-record (compiler 7691b1ae): multi-arg pure with
+  ;; :document fields fold into guest records.
+  (:schemas {:lgdoc/entry [:record :lgdoc/entry
+                           [[:name :keyword] [:value :string]]]
+             :lgdoc/group [:record :lgdoc/group
+                           [[:prefix :string] [:group :string] [:entries :document]]]
+             :lgdoc/nested [:record :lgdoc/nested
+                            [[:prefix :string] [:group :string]
+                             [:name :string] [:props :document]]]
+             :lgdoc/render-from [:record :lgdoc/render-from
+                                 [[:doc :document] [:index :i64] [:acc :string]]]
+             :lgdoc/line-from [:record :lgdoc/line-from
+                               [[:group :document] [:entry :document]]]}))
 
-;; Delivery 6 fourth cutover (css → html → shitsuke → **liquid-glass-ui**):
-;; Logical token-group `:document` → `--liquid-glass-*` CSS-var stream.
-;; Form-A `tokens_core.kotoba` remains oracle. ≤4 value params on recursion.
-;; Capability-free (kotoba/pure). spring-linear-easing stays host-side.
+(defn entry [x [:ref :lgdoc/entry]] :document
+  (let [name (record-get x :name)
+        value (record-get x :value)]
+    (document-map :name (document-keyword name)
+                  :value (document-string value))))
 
-(defn entry [name :keyword value :string] :document
-  (document-map :name (document-keyword name)
-                :value (document-string value)))
+(defn group-doc [x [:ref :lgdoc/group]] :document
+  (let [prefix (record-get x :prefix)
+        group (record-get x :group)
+        entries (record-get x :entries)]
+    (document-map :prefix (document-string prefix)
+                  :group (document-string group)
+                  :entries entries)))
 
-(defn group-doc [group :string entries :document] :document
-  (document-map :prefix (document-string "liquid-glass")
-                :group (document-string group)
-                :entries entries))
-
-(defn nested-doc [group :string k :string props :document] :document
-  (document-map :prefix (document-string "liquid-glass")
-                :group (document-string group)
-                :name (document-string k)
-                :nested (document-bool true)
-                :props props))
+(defn nested-doc [x [:ref :lgdoc/nested]] :document
+  (let [prefix (record-get x :prefix)
+        group (record-get x :group)
+        k (record-get x :name)
+        props (record-get x :props)]
+    (document-map :prefix (document-string prefix)
+                  :group (document-string group)
+                  :name (document-string k)
+                  :nested (document-bool true)
+                  :props props)))
 
 (defn str-field [d :document k :keyword] :string
   (option-value-of [:option :string]
@@ -63,45 +85,67 @@
 (defn join-nl [a :string b :string] :string
   (string-concat a (string-concat "\n" b)))
 
-(defn css-var-name2 [group :string k :string] :string
-  (string-concat "--liquid-glass-"
-                 (string-concat group (string-concat "-" k))))
+(defn css-var-name3 [prefix :string group :string k :string] :string
+  (string-concat "--"
+                 (string-concat prefix
+                                (string-concat "-"
+                                               (string-concat group
+                                                              (string-concat "-" k))))))
 
-(defn scalar-line [d :document e :document] :string
-  (decl (css-var-name2 (str-field d :group) (name-of-entry e))
-        (value-of-entry e)))
+(defn scalar-line [x [:ref :lgdoc/line-from]] :string
+  (let [d (record-get x :group)
+        e (record-get x :entry)]
+    (decl (css-var-name3 (str-field d :prefix) (str-field d :group) (name-of-entry e))
+          (value-of-entry e))))
 
-(defn nested-line [d :document e :document] :string
-  (decl (string-concat (css-var-name2 (str-field d :group) (str-field d :name))
-                       (string-concat "-" (name-of-entry e)))
-        (value-of-entry e)))
+(defn nested-line [x [:ref :lgdoc/line-from]] :string
+  (let [d (record-get x :group)
+        e (record-get x :entry)]
+    (decl (string-concat (css-var-name3 (str-field d :prefix) (str-field d :group)
+                                        (str-field d :name))
+                         (string-concat "-" (name-of-entry e)))
+          (value-of-entry e))))
 
-(defn render-entries-from [d :document i :i64 acc :string] :string
-  (let [entries (entries-of d)
+(defn render-entries-from [x [:ref :lgdoc/render-from]] :string
+  (let [d (record-get x :doc)
+        i (record-get x :index)
+        acc (record-get x :acc)
+        entries (entries-of d)
         n (document-count entries)]
     (if (>= i n)
       acc
-      (let [line (scalar-line d
-                   (option-value-of [:option :document]
-                     (document-vector-at entries i) (document-null)))
-            next (if (string=? acc "") line (join-nl acc line))]
-        (render-entries-from d (+ i 1) next)))))
+      (let [line (scalar-line
+                  (record-new [:ref :lgdoc/line-from]
+                              d
+                              (option-value-of [:option :document]
+                                (document-vector-at entries i) (document-null))))
+            next (if (string=? acc "") line
+                     (string-concat acc (string-concat "\n" line)))]
+        (render-entries-from
+         (record-new [:ref :lgdoc/render-from] d (+ i 1) next))))))
 
-(defn render-props-from [d :document i :i64 acc :string] :string
-  (let [props (props-of d)
+(defn render-props-from [x [:ref :lgdoc/render-from]] :string
+  (let [d (record-get x :doc)
+        i (record-get x :index)
+        acc (record-get x :acc)
+        props (props-of d)
         n (document-count props)]
     (if (>= i n)
       acc
-      (let [line (nested-line d
-                   (option-value-of [:option :document]
-                     (document-vector-at props i) (document-null)))
-            next (if (string=? acc "") line (join-nl acc line))]
-        (render-props-from d (+ i 1) next)))))
+      (let [line (nested-line
+                  (record-new [:ref :lgdoc/line-from]
+                              d
+                              (option-value-of [:option :document]
+                                (document-vector-at props i) (document-null))))
+            next (if (string=? acc "") line
+                     (string-concat acc (string-concat "\n" line)))]
+        (render-props-from
+         (record-new [:ref :lgdoc/render-from] d (+ i 1) next))))))
 
 (defn render-group [d :document] :string
   (if (nested? d)
-    (render-props-from d 0 "")
-    (render-entries-from d 0 "")))
+    (render-props-from (record-new [:ref :lgdoc/render-from] d 0 ""))
+    (render-entries-from (record-new [:ref :lgdoc/render-from] d 0 ""))))
 
 (defn root-css [body :string] :string
   (string-concat ":root {\n"
@@ -114,43 +158,53 @@
 ;; --- sample corpora (match form-A tokens_core sample-*) -------------------
 
 (defn sample-radius-doc [] :document
-  (group-doc "radius"
+  (group-doc
+   (record-new [:ref :lgdoc/group] "liquid-glass" "radius"
     (document-vector
-     (entry :lg "24px") (entry :md "16px")
-     (entry :pill "999px") (entry :sm "10px"))))
+     (entry (record-new [:ref :lgdoc/entry] :lg "24px"))
+     (entry (record-new [:ref :lgdoc/entry] :md "16px"))
+     (entry (record-new [:ref :lgdoc/entry] :pill "999px"))
+     (entry (record-new [:ref :lgdoc/entry] :sm "10px"))))))
 
 (defn sample-accent-doc [] :document
-  (group-doc "accent"
+  (group-doc
+   (record-new [:ref :lgdoc/group] "liquid-glass" "accent"
     (document-vector
-     (entry :tint "rgba(10,132,255,0.55)")
-     (entry :tint-strong "rgba(10,132,255,0.85)"))))
+     (entry (record-new [:ref :lgdoc/entry] :tint "rgba(10,132,255,0.55)"))
+     (entry (record-new [:ref :lgdoc/entry] :tint-strong "rgba(10,132,255,0.85)"))))))
 
 (defn sample-ink-doc [] :document
-  (group-doc "ink"
+  (group-doc
+   (record-new [:ref :lgdoc/group] "liquid-glass" "ink"
     (document-vector
-     (entry :default "#1c1c1e")
-     (entry :shadow "0 1px 2px rgba(255,255,255,.4)"))))
+     (entry (record-new [:ref :lgdoc/entry] :default "#1c1c1e"))
+     (entry (record-new [:ref :lgdoc/entry] :shadow "0 1px 2px rgba(255,255,255,.4)"))))))
 
 (defn sample-lens-doc [] :document
-  (group-doc "lens"
+  (group-doc
+   (record-new [:ref :lgdoc/group] "liquid-glass" "lens"
     (document-vector
-     (entry :frequency "0.008") (entry :octaves "2") (entry :scale "8"))))
+     (entry (record-new [:ref :lgdoc/entry] :frequency "0.008"))
+     (entry (record-new [:ref :lgdoc/entry] :octaves "2"))
+     (entry (record-new [:ref :lgdoc/entry] :scale "8"))))))
 
 (defn sample-regular-surface-doc [] :document
-  (nested-doc "surface" "regular"
+  (nested-doc
+   (record-new [:ref :lgdoc/nested] "liquid-glass" "surface" "regular"
     (document-vector
-     (entry :blur "20px")
-     (entry :border "rgba(255,255,255,0.35)")
-     (entry :saturate "180%")
-     (entry :tint "rgba(255,255,255,0.14)"))))
+     (entry (record-new [:ref :lgdoc/entry] :blur "20px"))
+     (entry (record-new [:ref :lgdoc/entry] :border "rgba(255,255,255,0.35)"))
+     (entry (record-new [:ref :lgdoc/entry] :saturate "180%"))
+     (entry (record-new [:ref :lgdoc/entry] :tint "rgba(255,255,255,0.14)"))))))
 
 (defn sample-press-motion-doc [] :document
-  (nested-doc "motion" "press"
+  (nested-doc
+   (record-new [:ref :lgdoc/nested] "liquid-glass" "motion" "press"
     (document-vector
-     (entry :duration "120ms")
-     (entry :easing "cubic-bezier(.32,.72,0,1)")
-     (entry :scale-x "1.02")
-     (entry :scale-y ".95"))))
+     (entry (record-new [:ref :lgdoc/entry] :duration "120ms"))
+     (entry (record-new [:ref :lgdoc/entry] :easing "cubic-bezier(.32,.72,0,1)"))
+     (entry (record-new [:ref :lgdoc/entry] :scale-x "1.02"))
+     (entry (record-new [:ref :lgdoc/entry] :scale-y ".95"))))))
 
 (defn sample-light-root [] :string
   (root-css
@@ -162,16 +216,18 @@
                                                 (render-group (sample-press-motion-doc)))))))))
 
 (defn sample-dark-ink-doc [] :document
-  (group-doc "ink"
+  (group-doc
+   (record-new [:ref :lgdoc/group] "liquid-glass" "ink"
     (document-vector
-     (entry :default "#f5f5f7")
-     (entry :shadow "0 1px 3px rgba(0,0,0,.45)"))))
+     (entry (record-new [:ref :lgdoc/entry] :default "#f5f5f7"))
+     (entry (record-new [:ref :lgdoc/entry] :shadow "0 1px 3px rgba(0,0,0,.45)"))))))
 
 (defn sample-dark-regular-surface-doc [] :document
-  (nested-doc "surface" "regular"
+  (nested-doc
+   (record-new [:ref :lgdoc/nested] "liquid-glass" "surface" "regular"
     (document-vector
-     (entry :border "rgba(255,255,255,0.12)")
-     (entry :tint "rgba(20,20,24,0.42)"))))
+     (entry (record-new [:ref :lgdoc/entry] :border "rgba(255,255,255,0.12)"))
+     (entry (record-new [:ref :lgdoc/entry] :tint "rgba(20,20,24,0.42)"))))))
 
 (defn sample-dark-root [] :string
   (dark-root-css

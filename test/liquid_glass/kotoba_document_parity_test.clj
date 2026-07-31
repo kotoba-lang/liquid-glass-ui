@@ -7,9 +7,8 @@
   Form-A remains oracle; consumer APIs unchanged. spring-linear-easing
   and component hiccup stay host-side.
 
-  T5.2: form-A multi-arg pure folded into guest records; form-A cases use
-  record-new. Document plane multi-arg (document constructors) stay multi-arg
-  until document-in-record closed profile lands."
+  T5.2 + document-in-record: constructors/render folds use guest records with
+  `:document` fields (`:lgdoc/*`)."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
@@ -30,11 +29,14 @@
                              (sort-by (comp str key) m)))
        ")"))
 
-(defn- entries-vector [m]
+(defn- entries-vector
+  "Document-plane entry constructors take guest records (document-in-record)."
+  [m]
   (str "(document-vector "
        (str/join " "
                  (map (fn [[k v]]
-                        (str "(entry " (pr-str k) " " (kotoba-literal (str v)) ")"))
+                        (str "(entry (record-new [:ref :lgdoc/entry] "
+                             (pr-str k) " " (kotoba-literal (str v)) "))"))
                       (sort-by (comp str key) m)))
        ")"))
 
@@ -87,14 +89,22 @@
                  "ink" (lg-group-css "ink" ink)})
         docs (compile-and-run
               document-source
-              {"radius" (str "(render-group (group-doc \"radius\" " (entries-vector radius) "))")
-               "accent" (str "(render-group (group-doc \"accent\" " (entries-vector accent) "))")
-               "lens" (str "(render-group (group-doc \"lens\" " (entries-vector lens) "))")
-               "ink" (str "(render-group (group-doc \"ink\" " (entries-vector ink) "))")
-               "root" "(root-css (render-group (group-doc \"ink\" (document-vector (entry :default \"#1c1c1e\")))))"
-               "dark" "(dark-root-css (render-group (group-doc \"ink\" (document-vector (entry :default \"#f5f5f7\")))))"
-               "c_decl" "(render-group (group-doc \"ink\" (document-vector (entry :default \"#1c1c1e\"))))"
-               "n_decl" "(render-group (nested-doc \"surface\" \"regular\" (document-vector (entry :blur \"20px\"))))"})]
+              {"radius" (str "(render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"radius\" "
+                             (entries-vector radius) ")))")
+               "accent" (str "(render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"accent\" "
+                             (entries-vector accent) ")))")
+               "lens" (str "(render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"lens\" "
+                           (entries-vector lens) ")))")
+               "ink" (str "(render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"ink\" "
+                          (entries-vector ink) ")))")
+               "root" (str "(root-css (render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"ink\" "
+                          "(document-vector (entry (record-new [:ref :lgdoc/entry] :default \"#1c1c1e\")))))))")
+               "dark" (str "(dark-root-css (render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"ink\" "
+                          "(document-vector (entry (record-new [:ref :lgdoc/entry] :default \"#f5f5f7\")))))))")
+               "c_decl" (str "(render-group (group-doc (record-new [:ref :lgdoc/group] \"liquid-glass\" \"ink\" "
+                            "(document-vector (entry (record-new [:ref :lgdoc/entry] :default \"#1c1c1e\"))))))")
+               "n_decl" (str "(render-group (nested-doc (record-new [:ref :lgdoc/nested] \"liquid-glass\" \"surface\" \"regular\" "
+                            "(document-vector (entry (record-new [:ref :lgdoc/entry] :blur \"20px\"))))))")})]
     (testing "form-A primitives still green"
       (is (= "--liquid-glass-radius-pill" (get form-a "c_var")))
       (is (= "  --liquid-glass-ink-default: #1c1c1e;" (get form-a "c_decl")))
@@ -129,10 +139,10 @@
                  "dark" "(sample-dark-root)"})
         docs (compile-and-run
               document-source
-              {"regular" (str "(render-group (nested-doc \"surface\" \"regular\" "
-                              (entries-vector regular) "))")
-               "press" (str "(render-group (nested-doc \"motion\" \"press\" "
-                            (entries-vector press) "))")
+              {"regular" (str "(render-group (nested-doc (record-new [:ref :lgdoc/nested] \"liquid-glass\" \"surface\" \"regular\" "
+                              (entries-vector regular) ")))")
+               "press" (str "(render-group (nested-doc (record-new [:ref :lgdoc/nested] \"liquid-glass\" \"motion\" \"press\" "
+                            (entries-vector press) ")))")
                "light" "(sample-light-root)"
                "dark" "(sample-dark-root)"})]
     (is (= (cljc-nested-css "surface" "regular" regular)

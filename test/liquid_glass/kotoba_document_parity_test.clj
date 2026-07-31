@@ -5,7 +5,11 @@
   Logical token-group `:document` → `--liquid-glass-*` stream with form-A
   tokens_core byte parity, light+dark samples, and print/read identity.
   Form-A remains oracle; consumer APIs unchanged. spring-linear-easing
-  and component hiccup stay host-side."
+  and component hiccup stay host-side.
+
+  T5.2: form-A multi-arg pure folded into guest records; form-A cases use
+  record-new. Document plane multi-arg (document constructors) stay multi-arg
+  until document-in-record closed profile lands."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
@@ -33,6 +37,15 @@
                         (str "(entry " (pr-str k) " " (kotoba-literal (str v)) ")"))
                       (sort-by (comp str key) m)))
        ")"))
+
+(defn- lg-group-css [group m]
+  (str "(group-css (record-new [:ref :lg/group-css] "
+       (kotoba-literal group) " " (typed-map-literal m) "))"))
+
+(defn- lg-nested-css [group k props]
+  (str "(nested-css (record-new [:ref :lg/nested-css] "
+       (kotoba-literal group) " " (kotoba-literal k) " "
+       (typed-map-literal props) "))"))
 
 (defn- compile-and-run [port-source cases]
   (let [defs (for [[name body] cases]
@@ -63,15 +76,15 @@
         ink (into (sorted-map) (get tokens/default-tokens :liquid-glass/ink))
         form-a (compile-and-run
                 form-a-source
-                {"c_var" "(css-var-name \"radius\" \"pill\")"
-                 "c_decl" "(scalar-decl \"ink\" \"default\" \"#1c1c1e\")"
-                 "n_decl" "(nested-decl \"surface\" \"regular\" \"blur\" \"20px\")"
-                 "root" "(root-css (scalar-decl \"ink\" \"default\" \"#1c1c1e\"))"
-                 "dark" "(dark-root-css (scalar-decl \"ink\" \"default\" \"#f5f5f7\"))"
-                 "radius" (str "(group-css \"radius\" " (typed-map-literal radius) ")")
-                 "accent" (str "(group-css \"accent\" " (typed-map-literal accent) ")")
-                 "lens" (str "(group-css \"lens\" " (typed-map-literal lens) ")")
-                 "ink" (str "(group-css \"ink\" " (typed-map-literal ink) ")")})
+                {"c_var" "(css-var-name (record-new [:ref :lg/css-var-name] \"radius\" \"pill\"))"
+                 "c_decl" "(scalar-decl (record-new [:ref :lg/scalar-decl] \"ink\" \"default\" \"#1c1c1e\"))"
+                 "n_decl" "(nested-decl (record-new [:ref :lg/nested-decl] \"surface\" \"regular\" \"blur\" \"20px\"))"
+                 "root" "(root-css (scalar-decl (record-new [:ref :lg/scalar-decl] \"ink\" \"default\" \"#1c1c1e\")))"
+                 "dark" "(dark-root-css (scalar-decl (record-new [:ref :lg/scalar-decl] \"ink\" \"default\" \"#f5f5f7\")))"
+                 "radius" (lg-group-css "radius" radius)
+                 "accent" (lg-group-css "accent" accent)
+                 "lens" (lg-group-css "lens" lens)
+                 "ink" (lg-group-css "ink" ink)})
         docs (compile-and-run
               document-source
               {"radius" (str "(render-group (group-doc \"radius\" " (entries-vector radius) "))")
@@ -110,8 +123,8 @@
                          (get-in tokens/default-tokens [:liquid-glass/motion :press])))
         form-a (compile-and-run
                 form-a-source
-                {"regular" (str "(nested-css \"surface\" \"regular\" " (typed-map-literal regular) ")")
-                 "press" (str "(nested-css \"motion\" \"press\" " (typed-map-literal press) ")")
+                {"regular" (lg-nested-css "surface" "regular" regular)
+                 "press" (lg-nested-css "motion" "press" press)
                  "light" "(sample-light-root)"
                  "dark" "(sample-dark-root)"})
         docs (compile-and-run

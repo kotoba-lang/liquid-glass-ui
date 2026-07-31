@@ -9,7 +9,9 @@
 
   The port is compiled and executed through the KIR interpreter in this same
   JVM. Each case is a zero-argument `.kotoba` function. Map walks are
-  key-sorted on both sides. spring-linear-easing (f64 Math) is not ported."
+  key-sorted on both sides. spring-linear-easing (f64 Math) is not ported.
+
+  T5.2: multi-arg pure folded into guest records; cases call via record-new."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
@@ -35,6 +37,15 @@
                              (sort-by (comp str key) m)))
        ")"))
 
+(defn- lg-group-css [group m]
+  (str "(group-css (record-new [:ref :lg/group-css] "
+       (kotoba-literal group) " " (typed-map-literal m) "))"))
+
+(defn- lg-nested-css [group k props]
+  (str "(nested-css (record-new [:ref :lg/nested-css] "
+       (kotoba-literal group) " " (kotoba-literal k) " "
+       (typed-map-literal props) "))"))
+
 (defn- cljc-scalar-group-css
   "Key-sorted reconstruction of liquid-glass.tokens/pair->css for scalar groups."
   [group m]
@@ -54,11 +65,11 @@
 
 (deftest scalar-and-nested-decls-match
   (let [actual (compile-cases
-                {"c_var" "(css-var-name \"radius\" \"pill\")"
-                 "c_decl" "(scalar-decl \"ink\" \"default\" \"#1c1c1e\")"
-                 "n_decl" "(nested-decl \"surface\" \"regular\" \"blur\" \"20px\")"
-                 "root" "(root-css (scalar-decl \"ink\" \"default\" \"#1c1c1e\"))"
-                 "dark" "(dark-root-css (scalar-decl \"ink\" \"default\" \"#f5f5f7\"))"})]
+                {"c_var" "(css-var-name (record-new [:ref :lg/css-var-name] \"radius\" \"pill\"))"
+                 "c_decl" "(scalar-decl (record-new [:ref :lg/scalar-decl] \"ink\" \"default\" \"#1c1c1e\"))"
+                 "n_decl" "(nested-decl (record-new [:ref :lg/nested-decl] \"surface\" \"regular\" \"blur\" \"20px\"))"
+                 "root" "(root-css (scalar-decl (record-new [:ref :lg/scalar-decl] \"ink\" \"default\" \"#1c1c1e\")))"
+                 "dark" "(dark-root-css (scalar-decl (record-new [:ref :lg/scalar-decl] \"ink\" \"default\" \"#f5f5f7\")))"})]
     (is (= "--liquid-glass-radius-pill" (get actual "c_var")))
     (is (= "  --liquid-glass-ink-default: #1c1c1e;" (get actual "c_decl")))
     (is (= "  --liquid-glass-surface-regular-blur: 20px;" (get actual "n_decl")))
@@ -73,10 +84,10 @@
         lens (into (sorted-map) (get tokens/default-tokens :liquid-glass/lens))
         ink (into (sorted-map) (get tokens/default-tokens :liquid-glass/ink))
         actual (compile-cases
-                {"radius" (str "(group-css \"radius\" " (typed-map-literal radius) ")")
-                 "accent" (str "(group-css \"accent\" " (typed-map-literal accent) ")")
-                 "lens" (str "(group-css \"lens\" " (typed-map-literal lens) ")")
-                 "ink" (str "(group-css \"ink\" " (typed-map-literal ink) ")")})]
+                {"radius" (lg-group-css "radius" radius)
+                 "accent" (lg-group-css "accent" accent)
+                 "lens" (lg-group-css "lens" lens)
+                 "ink" (lg-group-css "ink" ink)})]
     (is (= (cljc-scalar-group-css "radius" radius) (get actual "radius")))
     (is (= (cljc-scalar-group-css "accent" accent) (get actual "accent")))
     (is (= (cljc-scalar-group-css "lens" lens) (get actual "lens")))
@@ -92,8 +103,8 @@
         ;; stringify any non-string (none expected in press)
         press (into (sorted-map) (map (fn [[k v]] [k (str v)]) press))
         actual (compile-cases
-                {"regular" (str "(nested-css \"surface\" \"regular\" " (typed-map-literal regular) ")")
-                 "press" (str "(nested-css \"motion\" \"press\" " (typed-map-literal press) ")")})]
+                {"regular" (lg-nested-css "surface" "regular" regular)
+                 "press" (lg-nested-css "motion" "press" press)})]
     (is (= (cljc-nested-css "surface" "regular" regular) (get actual "regular")))
     (is (= (cljc-nested-css "motion" "press" press) (get actual "press")))
     (is (str/includes? (tokens/css-variables) "--liquid-glass-surface-regular-blur: 20px;"))

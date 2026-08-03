@@ -262,7 +262,32 @@
   (testing "list/listitem ARIA roles"
     (let [out (html (c/list-view [(c/list-row "Row 1") (c/list-row "Row 2")]))]
       (is (str/includes? out "role=\"list\""))
-      (is (= 2 (count (re-seq #"role=\"listitem\"" out)))))))
+      (is (= 2 (count (re-seq #"role=\"listitem\"" out))))))
+  ;; Reported from kotoba-lang/mokuroku-ui: a selectable list had no way to say
+  ;; a row was selected. A CSS class tells the eye and nothing else, and
+  ;; aria-selected belongs on the element carrying role="listitem" -- this one.
+  ;; :attrs was silently dropped before, so consuming code read as accessible
+  ;; while rendering nothing of the sort.
+  (testing ":attrs reaches the listitem element"
+    (let [out (html (c/list-row "Row" {:attrs {:aria-selected "true"}}))]
+      (is (str/includes? out "aria-selected=\"true\""))
+      (is (str/includes? out "role=\"listitem\""))))
+  (testing ":attrs cannot clobber the component's own attrs"
+    ;; Same merge contract as kotoba-ui.shell/with-root-attrs: base wins.
+    (let [out (html (c/list-row "Row" {:act :open
+                                       :class "app-row"
+                                       :attrs {:class "hijacked"
+                                               :role "button"
+                                               :data-act "stolen"
+                                               :data-testid "kept"}}))]
+      (is (str/includes? out "liquid-glass__list-row app-row"))
+      (is (not (str/includes? out "hijacked")))
+      (is (str/includes? out "role=\"listitem\""))
+      (is (not (str/includes? out "role=\"button\"")))
+      (is (str/includes? out "data-act=\"open\""))
+      (is (not (str/includes? out "stolen")))
+      (is (str/includes? out "data-testid=\"kept\"")
+          "non-conflicting keys still get through"))))
 
 (deftest chip-test
   (let [out (html (c/chip "Vegetarian" {:on-remove-act :remove-veg}))]

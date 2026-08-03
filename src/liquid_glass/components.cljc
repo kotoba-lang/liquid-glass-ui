@@ -421,11 +421,26 @@
 (defn list-row
   "A row inside `list-view` (no shitsuke equivalent). `content` is
   hiccup/string. opts: :act (clickable row), :trailing (hiccup shown at the
-  row's end), :class."
+  row's end), :class, :attrs.
+
+  `:attrs` is merged onto the row element with the component's own generated
+  attrs winning on conflict — the same contract `kotoba-ui.shell` uses — so it
+  can add `aria-selected` / `aria-current` / `data-*` but can never clobber
+  the row's :class, :role or :data-act.
+
+  It exists because a selectable list has no other way to say a row is
+  selected. A CSS class tells the eye and nothing else; `aria-selected`
+  belongs on this element, which is the one carrying `role=\"listitem\"`.
+  Before this opt, passing `:attrs` here was silently dropped, so consuming
+  code read as accessible while rendering nothing of the sort — reported from
+  `kotoba-lang/mokuroku-ui`, where every app in the `app-*` suite needs it."
   ([content] (list-row content nil))
   ([content opts]
-   (let [{:keys [act trailing class]} opts]
-     [:div {:class (cls (s/class-name :list-row) class) :data-act (some-> act act->str) :role "listitem"}
+   (let [{:keys [act trailing class attrs]} opts
+         base {:class (cls (s/class-name :list-row) class)
+               :data-act (some-> act act->str)
+               :role "listitem"}]
+     [:div (if (seq attrs) (merge attrs base) base)
       [:div {:class (s/class-name :list-row-content)} content]
       (when trailing [:div {:class (s/class-name :list-row-trailing)} trailing])])))
 

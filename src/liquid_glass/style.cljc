@@ -89,6 +89,31 @@
                      "inset 0 1px 0 rgba(255,255,255,var(--liquid-glass-specular-rim-top-opacity)),"
                      "inset 0 -1px 0 rgba(255,255,255,var(--liquid-glass-specular-rim-bottom-opacity))")})
 
+(defn- focus-decls
+  "Keyboard focus indicator declarations, ported from DADS (see the
+  `:liquid-glass/focus` token docstring): a two-tone concentric ring — the
+  `:halo` fills 0..halo-width outside the border box as the FIRST box-shadow
+  layer, the `:ring` starts at `:ring-offset` (= halo-width) as the outline.
+
+  `level` is the surface's own elevation (`:raised`/`:overlay`/… ) or nil for
+  a component that carries no elevation shadow. It has to be threaded through
+  because `box-shadow` REPLACES rather than composes: a bare
+  `box-shadow: 0 0 0 2px halo` on a focused glass control would drop that
+  control's elevation shadow AND its rim edge light, so the glass edge would
+  vanish for exactly the users who need the strongest visual anchor. Passing
+  the level re-emits both layers under the halo (and keeps
+  `every-elevation-shadow-carries-both-rim-vars-test` covering these rules
+  too — the rim assertion walks every rule with an elevation shadow,
+  including these)."
+  ([] (focus-decls nil))
+  ([level]
+   (let [halo "0 0 0 var(--liquid-glass-focus-halo-width) var(--liquid-glass-focus-halo-color)"]
+     {:outline "var(--liquid-glass-focus-ring-width) solid var(--liquid-glass-focus-ring-color)"
+      :outline-offset "var(--liquid-glass-focus-ring-offset)"
+      :box-shadow (if level
+                    (str halo "," (:box-shadow (glass-shadow-decls level)))
+                    halo)})))
+
 (def ^:private ink-decls
   "Default readable text color + a soft counter-shadow, from the
   :liquid-glass/ink token (dark ink in light scheme, light ink in dark scheme
@@ -111,7 +136,7 @@
   ["panel" "button" "icon-button" "toolbar" "sheet" "badge"
    "text-field" "text-area" "search-field" "menu-select"
    "toggle-track" "checkbox-box" "radio-box" "stepper"
-   "nav-bar" "alert" "menu" "list" "chip" "disclosure"])
+   "nav-bar" "alert" "menu" "list" "chip" "disclosure" "banner"])
 
 ;; Every top-level component root that can carry user-visible text — a
 ;; superset of glass-surface-components (adds the outer wrapper for
@@ -123,7 +148,7 @@
 (def ^:private ink-components
   (into glass-surface-components
         ["tab-bar" "toggle" "checkbox" "radio" "slider" "progress-bar"
-         "progress-circle" "gauge" "divider" "label" "avatar" "tooltip"]))
+         "progress-circle" "gauge" "divider" "label" "avatar" "tooltip" "field"]))
 
 ;; Components that actually append the `liquid-glass__specular` marker span
 ;; as a direct child (see liquid-glass.components — the compound controls
@@ -132,7 +157,7 @@
 (def ^:private specular-host-components
   ["panel" "button" "icon-button" "toolbar" "tab-bar" "sheet" "text-field"
    "text-area" "search-field" "menu-select" "stepper" "nav-bar" "alert"
-   "menu" "list" "chip" "disclosure"])
+   "menu" "list" "chip" "disclosure" "banner"])
 
 ;; Overlay/presence components that get enter animations on insertion and the
 ;; [data-state="closing"] exit contract (see overlay-motion-rules).
@@ -178,26 +203,90 @@
    [".liquid-glass__panel--overlay" (glass-shadow-decls :overlay)]
    [".liquid-glass__panel--floating" (glass-shadow-decls :floating)]])
 
+;; Selector list for both button shapes, optionally with a modifier and/or a
+;; trailing pseudo — `.liquid-glass__button--sm,.liquid-glass__icon-button--sm`.
+(defn- btn-sel
+  ([] (btn-sel nil ""))
+  ([modifier] (btn-sel modifier ""))
+  ([modifier suffix]
+   (let [m (if modifier (str "--" (name modifier)) "")]
+     (str ".liquid-glass__button" m suffix ",.liquid-glass__icon-button" m suffix))))
+
 (defn- button-rules []
-  [[".liquid-glass__button,.liquid-glass__icon-button"
+  [[(btn-sel)
     ;; min-height 44px: Apple HIG minimum tap-target — padding alone leaves the
     ;; computed height under 44px at default type sizes (design-quality
-    ;; :tap-targets axis, kotoba-lang/kotoba-ui#3 follow-up).
+    ;; :tap-targets axis, kotoba-lang/kotoba-ui#3 follow-up). This is also the
+    ;; `--md` default of the size scale below; `--md` therefore emits no
+    ;; modifier class and no rule (same "default variant is silent" contract
+    ;; panel's `:regular`/`:raised` already use), so every button written
+    ;; before the scale existed renders byte-identically.
     (merge {:overflow "hidden" :display "inline-flex" :align-items "center" :justify-content "center"
             :gap ".4em" :padding ".6em 1.1em" :min-height "44px"
-            :border-radius "var(--liquid-glass-radius-pill)" :cursor "pointer"}
+            :border-radius "var(--liquid-glass-radius-pill)" :cursor "pointer"
+            ;; the <a href> form (components/button :href) must not read as a
+            ;; link — it IS a button, visually and semantically
+            :text-decoration "none"}
            (glass-bg-decls :regular) (glass-shadow-decls :raised))]
    [".liquid-glass__icon-button" {:padding ".55em" :aspect-ratio "1"}]
-   [".liquid-glass__button:hover,.liquid-glass__icon-button:hover"
-    (merge {:transform "translateY(-1px)" :filter "brightness(1.08)"} (glass-shadow-decls :overlay))]
-   ;; Press morph: a subtle squash (wider + shorter) rather than a flat
-   ;; uniform scale — reads as glass giving under a fingertip. Values are the
-   ;; :liquid-glass/motion :press :scale-x/:scale-y tokens.
-   [".liquid-glass__button:active,.liquid-glass__icon-button:active"
+
+   ;; --- size scale (ported from DADS `data-size` lg/md/sm/xs) --------------
+   ;; DADS's compact sizes keep a full 44px TOUCH target even though the
+   ;; painted control is 36px/28px tall, via a transparent `::after` that is
+   ;; centred on the button and exactly 44px high. That is the detail worth
+   ;; porting: before this, the only way to get a compact glass button was for
+   ;; the consumer to override min-height, which silently destroyed the tap
+   ;; target — the library offered no size that was both small and reachable.
+   ;; `overflow: visible` is required on those two sizes only: the base rule
+   ;; clips to the border box, and a clipped ::after does not receive pointer
+   ;; events, so the expander would be inert. The specular ::before is
+   ;; `inset: 0` and stays inside the box either way.
+   [(btn-sel :lg) {:min-height "56px" :padding ".8em 1.4em" :font-size "1.05em"}]
+   [(btn-sel :sm) {:min-height "36px" :padding ".3em .85em" :font-size ".9em" :overflow "visible"}]
+   [(btn-sel :xs) {:min-height "28px" :padding ".15em .6em" :font-size ".8em" :overflow "visible"}]
+   [(str (btn-sel :sm "::after") "," (btn-sel :xs "::after"))
+    {:content "\"\"" :position "absolute" :inset "0" :margin "auto" :height "44px"}]
+
+   ;; --- variants (ported from DADS `data-type` solid-fill/outline/text) ----
+   ;; Rendered as glass, not as DADS's flat fills: `--solid-fill` tints the
+   ;; SAME material with the accent instead of replacing it with an opaque
+   ;; swatch, so a primary action still refracts what is behind it. The
+   ;; default (no modifier) is DADS's `outline` — i.e. exactly today's glass
+   ;; button, which is why it stays silent.
+   [(btn-sel :solid-fill)
+    {:background "var(--liquid-glass-accent-tint-strong)"
+     :border-color "var(--liquid-glass-accent-tint-strong)"
+     :color "var(--liquid-glass-ink-on-accent)"
+     :font-weight "600"}]
+   ;; `--text` drops the surface entirely (no tint, no backdrop cost, no
+   ;; shadow) — a tertiary action inside a glass panel should not stack a
+   ;; second sheet of glass on the first.
+   [(btn-sel :text)
+    {:background "transparent" :border-color "transparent" :box-shadow "none"
+     :backdrop-filter "none" :-webkit-backdrop-filter "none"}]
+   ;; ...including the specular sheen: there is no surface for it to sit on
+   [(btn-sel :text "::before") {:display "none"}]])
+
+(defn press-rules
+  "`:active` / `:disabled` for the button shapes. Split out of `button-rules`
+  purely for cascade order: these have the same specificity as the `:hover`
+  rules, so they must be emitted *after* the `@media (hover: hover)` block or
+  hover would win while the pointer is both hovering and pressing — i.e. the
+  press morph would never be visible on a mouse."
+  []
+  ;; Press morph: a subtle squash (wider + shorter) rather than a flat
+  ;; uniform scale — reads as glass giving under a fingertip. Values are the
+  ;; :liquid-glass/motion :press :scale-x/:scale-y tokens.
+  [[(btn-sel nil ":active")
     {:transform (str "translateY(0) scaleX(var(--liquid-glass-motion-press-scale-x))"
                      " scaleY(var(--liquid-glass-motion-press-scale-y))")
      :filter "brightness(.97)"}]
-   [".liquid-glass__button:disabled,.liquid-glass__icon-button:disabled"
+   ;; Disabled covers BOTH spellings, as DADS does: `:disabled` is the native
+   ;; attribute, `[aria-disabled="true"]` is the focusable-disabled pattern a
+   ;; consumer needs when the control must stay discoverable by a screen
+   ;; reader (and the only spelling available at all on the `<a href>` form,
+   ;; which has no `disabled` attribute).
+   [(str (btn-sel nil ":disabled") "," (btn-sel nil "[aria-disabled=\"true\"]"))
     {:opacity ".45" :cursor "not-allowed" :transform "none" :filter "none"}]])
 
 (defn- toolbar-tabbar-rules []
@@ -242,8 +331,6 @@
      :background "transparent" :color "inherit" :font "inherit"}]
    [".liquid-glass__text-area textarea" {:resize "vertical"}]
    [".liquid-glass__search-icon" {:opacity ".6" :font-size ".9em" :line-height "1"}]
-   [".liquid-glass__text-field:focus-within,.liquid-glass__search-field:focus-within,.liquid-glass__text-area:focus-within"
-    {:box-shadow "0 0 0 2px var(--liquid-glass-accent-tint)"}]
    [".liquid-glass__menu-select"
     (merge {:display "inline-flex" :align-items "center" :padding ".55em 2.1em .55em .9em"
             :border-radius "var(--liquid-glass-radius-pill)"}
@@ -254,6 +341,63 @@
    [".liquid-glass__menu-select::after"
     {:content "\"⌄\"" :position "absolute" :right ".9em" :top "50%"
      :transform "translateY(-50%)" :pointer-events "none" :opacity ".6"}]])
+
+(defn- field-rules []
+  ;; The labelled-control wrapper, ported from DADS `form-control-label`.
+  ;; Deliberately NOT a glass surface: it is the frame around a control that
+  ;; already is one, and a second sheet of glass behind the first only muddies
+  ;; both. Only the ink and the status colors are ours.
+  [[".liquid-glass__field" {:display "flex" :flex-direction "column" :gap ".35em"}]
+   [".liquid-glass__field-label"
+    {:display "inline-flex" :align-items "baseline" :gap ".4em"
+     :font-weight "600" :font-size ".9em" :line-height "1.4"}]
+   ;; DADS keeps the requirement marker at normal weight and colors it only
+   ;; when it means "required" — `data-required="false"` is the *optional*
+   ;; marker and must NOT be red.
+   [".liquid-glass__field-requirement" {:font-weight "400" :font-size ".85em" :opacity ".75"}]
+   [".liquid-glass__field-requirement[data-required=\"true\"]"
+    {:color "var(--liquid-glass-status-error)" :opacity "1"}]
+   [".liquid-glass__field-status"
+    (merge {:display "inline-flex" :align-items "center" :padding ".05em .5em"
+            :border-radius "var(--liquid-glass-radius-pill)" :font-weight "400" :font-size ".8em"}
+           (glass-bg-decls :regular))]
+   [".liquid-glass__field-support" {:margin "0" :font-size ".85em" :opacity ".8" :line-height "1.5"}]
+   [".liquid-glass__field-error"
+    {:margin "0" :font-size ".85em" :font-weight "600" :line-height "1.5"
+     :color "var(--liquid-glass-status-error)"}]
+   ;; The invalid control itself: a status-colored edge, not a re-tint of the
+   ;; glass (the material has to keep reading as the same material).
+   [".liquid-glass__field[data-invalid=\"true\"] .liquid-glass__text-field,.liquid-glass__field[data-invalid=\"true\"] .liquid-glass__text-area,.liquid-glass__field[data-invalid=\"true\"] .liquid-glass__search-field,.liquid-glass__field[data-invalid=\"true\"] .liquid-glass__menu-select"
+    {:border-color "var(--liquid-glass-status-error)"}]])
+
+(defn- banner-rules []
+  ;; Inline status banner, ported from DADS `notification-banner`. liquid-glass
+  ;; had `alert` (a centred modal dialog) and nothing for the far more common
+  ;; case: a non-blocking message that stays in the flow of the page.
+  [[".liquid-glass__banner"
+    (merge {:display "flex" :gap ".75em" :padding "1em 1.15em" :align-items "flex-start"
+            :border-radius "var(--liquid-glass-radius-md)"
+            ;; the status color rides on the left edge as a 4px bar rather
+            ;; than as a background wash: a wash would have to be opaque to
+            ;; be legible, which is the one thing this material must not be
+            :border-left-width "4px"
+            :border-left-color "var(--liquid-glass-status-info)"}
+           (glass-bg-decls :thick) (glass-shadow-decls :raised))]
+   [".liquid-glass__banner--success" {:border-left-color "var(--liquid-glass-status-success)"}]
+   [".liquid-glass__banner--warning" {:border-left-color "var(--liquid-glass-status-warning)"}]
+   [".liquid-glass__banner--error" {:border-left-color "var(--liquid-glass-status-error)"}]
+   [".liquid-glass__banner-icon"
+    {:flex-shrink "0" :display "inline-flex" :width "1.25em" :height "1.25em"
+     :color "var(--liquid-glass-status-info)"}]
+   [".liquid-glass__banner--success .liquid-glass__banner-icon" {:color "var(--liquid-glass-status-success)"}]
+   [".liquid-glass__banner--warning .liquid-glass__banner-icon" {:color "var(--liquid-glass-status-warning)"}]
+   [".liquid-glass__banner--error .liquid-glass__banner-icon" {:color "var(--liquid-glass-status-error)"}]
+   [".liquid-glass__banner-body" {:flex "1" :min-width "0" :display "flex"
+                                  :flex-direction "column" :gap ".3em"}]
+   [".liquid-glass__banner-heading" {:margin "0" :font-size "1em" :font-weight "700" :line-height "1.4"}]
+   [".liquid-glass__banner-timestamp" {:font-size ".8em" :opacity ".7"}]
+   [".liquid-glass__banner-content" {:font-size ".9em" :line-height "1.6"}]
+   [".liquid-glass__banner-actions" {:display "flex" :flex-wrap "wrap" :gap ".5em" :margin-top ".25em"}]])
 
 (defn- toggle-rules []
   [[".liquid-glass__toggle" {:display "inline-flex" :align-items "center" :cursor "pointer"}]
@@ -273,8 +417,6 @@
     {:background "var(--liquid-glass-accent-tint-strong)" :border-color "var(--liquid-glass-accent-tint-strong)"}]
    [".liquid-glass__toggle-input:checked ~ .liquid-glass__toggle-track .liquid-glass__toggle-thumb"
     {:transform "translateX(20px)"}]
-   [".liquid-glass__toggle-input:focus-visible ~ .liquid-glass__toggle-track"
-    {:box-shadow "0 0 0 2px var(--liquid-glass-accent-tint)"}]
    [".liquid-glass__toggle-input:disabled ~ .liquid-glass__toggle-track"
     {:opacity ".45" :cursor "not-allowed"}]])
 
@@ -374,7 +516,15 @@
    [".liquid-glass__gauge-label" {:position "relative" :z-index "1" :font-size "12px" :font-weight "700"}]])
 
 (defn- misc-rules []
-  [[".liquid-glass__divider" {:border "none" :height "1px" :margin "1em 0"
+  [;; Visually-hidden but screen-reader-visible text. Same clip technique the
+   ;; toggle/checkbox/radio inputs already use inline, lifted to a utility
+   ;; because `banner` needs it for the status-type label — an icon is
+   ;; `aria-hidden`, so without this the *type* of a banner reaches nobody
+   ;; using a screen reader.
+   [".liquid-glass__sr-only"
+    {:position "absolute" :width "1px" :height "1px" :padding "0" :margin "-1px"
+     :overflow "hidden" :clip "rect(0,0,0,0)" :white-space "nowrap" :border "0"}]
+   [".liquid-glass__divider" {:border "none" :height "1px" :margin "1em 0"
                               :background "var(--liquid-glass-surface-regular-border)"}]
    [".liquid-glass__label" {:display "inline-flex" :align-items "center" :gap ".5em"}]
    [".liquid-glass__label-icon" {:display "inline-flex" :font-size "1.1em" :line-height "1"}]
@@ -414,7 +564,6 @@
    [".liquid-glass__menu-item"
     {:all "unset" :box-sizing "border-box" :padding ".5em .7em" :border-radius "var(--liquid-glass-radius-sm)"
      :cursor "pointer" :font "inherit" :color "inherit"}]
-   [".liquid-glass__menu-item:hover" {:background "rgba(255,255,255,.18)"}]
    [".liquid-glass__menu-item:disabled" {:opacity ".45" :cursor "not-allowed"}]])
 
 (defn- list-rules []
@@ -440,8 +589,7 @@
    [".liquid-glass__chip-remove"
     {:all "unset" :box-sizing "border-box" :display "inline-flex" :align-items "center"
      :justify-content "center" :width "16px" :height "16px" :border-radius "50%"
-     :cursor "pointer" :opacity ".7" :font-size "11px"}]
-   [".liquid-glass__chip-remove:hover" {:opacity "1" :background "rgba(255,255,255,.18)"}]])
+     :cursor "pointer" :opacity ".7" :font-size "11px"}]])
 
 (defn- disclosure-rules []
   [[".liquid-glass__disclosure"
@@ -455,6 +603,130 @@
      :transition "transform var(--liquid-glass-motion-settle-duration) var(--liquid-glass-motion-settle-easing)"}]
    [".liquid-glass__disclosure[open] .liquid-glass__disclosure-chevron" {:transform "rotate(180deg)"}]
    [".liquid-glass__disclosure-body" {:padding "0 1em 1em"}]])
+
+(defn hover-rules
+  "Rules that must only apply on devices with a real hover-capable pointer.
+  Emitted by `component-css` inside `@media (hover: hover)` (the DADS
+  convention — every one of its `:hover` blocks carries that guard).
+
+  Without the guard a touch tap leaves the control stuck in its hover state
+  until the next tap elsewhere, because a touchscreen has no way to send
+  \"pointer left\": the glass button visibly floats up (translateY + a
+  brighter backdrop + the overlay-elevation shadow) and stays there. On a
+  phone that reads as a stuck/selected control, which is precisely wrong for
+  a material whose whole affordance is that it responds and settles.
+
+  Public because it is a distinct cascade position, not just an
+  implementation detail: `component-rules` returns these *after* the base
+  rules and *before* the `:active`/`:focus-visible` states, and rendering it
+  yourself without that ordering (or without the media wrapper) changes which
+  state wins."
+  []
+  [[(btn-sel nil ":hover")
+    (merge {:transform "translateY(-1px)" :filter "brightness(1.08)"} (glass-shadow-decls :overlay))]
+   ;; the two variants that own their own background have to restate it —
+   ;; a brightness() lift alone is invisible on a flat accent fill
+   [(btn-sel :solid-fill ":hover") {:filter "brightness(1.12)"}]
+   [(btn-sel :text ":hover") {:background "rgba(255,255,255,.18)" :box-shadow "none"}]
+   [".liquid-glass__menu-item:hover" {:background "rgba(255,255,255,.18)"}]
+   [".liquid-glass__chip-remove:hover" {:opacity "1" :background "rgba(255,255,255,.18)"}]
+   [".liquid-glass__list-row[data-act]:hover" {:background "rgba(255,255,255,.10)"}]])
+
+(defn focus-rules
+  "The keyboard focus indicator, on every interactive surface this library
+  renders (see `focus-decls` for the two-tone ring itself).
+
+  Before this block the library had exactly one focus style — the toggle
+  track — so a keyboard or switch user tabbing through a glass UI got no
+  visible indication anywhere else: buttons, tabs, menu items, list rows,
+  chips, disclosure summaries, sliders and select all rendered focus as
+  nothing at all (WCAG 2.4.7 Focus Visible, level A).
+
+  Worth stating because it is a trap for anyone measuring this: the
+  deterministic design-quality audit's `:focus-visible` axis is a regex for
+  the *string* `:focus-visible` anywhere in the page source, so that single
+  toggle rule scored the showcase 1.0 on that axis — a full 100.00 overall —
+  while eight component families had no ring. A passing axis is not a
+  passing component."
+  []
+  (let [;; components that carry an elevation shadow have to re-emit it under
+        ;; the halo (box-shadow replaces, it does not compose)
+        raised (focus-decls :raised)
+        flat   (focus-decls)]
+    [[(btn-sel nil ":focus-visible") raised]
+     ;; the text variant has no surface and no shadow — halo only, or focus
+     ;; would hand it an elevation it does not otherwise have
+     [(btn-sel :text ":focus-visible") flat]
+     [".liquid-glass__tab:focus-visible" flat]
+     [".liquid-glass__menu-item:focus-visible" flat]
+     [".liquid-glass__chip:focus-visible,.liquid-glass__chip-remove:focus-visible" flat]
+     [".liquid-glass__list-row:focus-visible" flat]
+     [".liquid-glass__disclosure-summary:focus-visible" flat]
+     [".liquid-glass__slider:focus-visible" flat]
+     ;; Text controls: the ring goes on the WRAPPER, because the wrapper is
+     ;; the glass surface and the <input> inside it is a transparent,
+     ;; border-less child. `:focus-within` rather than `:focus-visible`
+     ;; matches what the browser itself does — a text input matches
+     ;; :focus-visible even when focused by mouse (it is about to receive
+     ;; typing), and DADS styles `.dads-input-text__input:focus-visible` with
+     ;; this exact ring for the same reason.
+     [".liquid-glass__text-field:focus-within,.liquid-glass__search-field:focus-within,.liquid-glass__text-area:focus-within,.liquid-glass__menu-select:focus-within"
+      raised]
+     ;; The compound controls hide their native input and paint a sibling
+     ;; span, so the ring has to be forwarded to that span.
+     [".liquid-glass__toggle-input:focus-visible ~ .liquid-glass__toggle-track" flat]
+     [".liquid-glass__checkbox-input:focus-visible ~ .liquid-glass__checkbox-box" flat]
+     [".liquid-glass__radio-input:focus-visible ~ .liquid-glass__radio-box" flat]]))
+
+(defn- forced-colors-css
+  "Windows High Contrast / forced-colors fallback.
+
+  This material is built from things forced-colors mode either strips or
+  cannot see: `backdrop-filter` is ignored, `box-shadow` (the elevation AND
+  the rim edge light — the entire glass edge) is forced to none, and
+  `text-shadow` is dropped. What survives untouched is the specular
+  `::before`, a `mix-blend-mode: overlay` radial gradient — a decoration that
+  in this mode paints a light wash over content it no longer sits behind.
+  The net result without this block is controls with no edge and a haze over
+  the text: the users who most need contrast get the least.
+
+  So: drop the backdrop and the specular, take the system palette for the
+  surface, and — the one that matters most — replace `opacity: .45` on
+  disabled controls with `GrayText`. Opacity is NOT part of the forced
+  palette, so a dimmed-by-opacity control stays dimmed *and* recolored, which
+  is how disabled controls become unreadable rather than merely quiet.
+  DADS handles the same case the same way (`@media (forced-colors: active)`
+  → `color: GrayText` on every disabled button variant)."
+  []
+  (css/media "(forced-colors: active)"
+             [[(sel glass-surface-components)
+               {:background "Canvas" :border-color "ButtonBorder"
+                :backdrop-filter "none" :-webkit-backdrop-filter "none"}]
+              [(sel glass-surface-components "::before") {:display "none"}]
+              [".liquid-glass-js .liquid-glass__specular" {:display "none"}]
+              [(btn-sel) {:color "ButtonText"}]
+              [(btn-sel :solid-fill) {:background "Highlight" :color "HighlightText" :border-color "Highlight"}]
+              [(str (btn-sel nil ":disabled") "," (btn-sel nil "[aria-disabled=\"true\"]")
+                    ",.liquid-glass__menu-item:disabled")
+               {:opacity "1" :color "GrayText" :border-color "GrayText"}]
+              [(str ".liquid-glass__toggle-input:disabled ~ .liquid-glass__toggle-track,"
+                    ".liquid-glass__checkbox-input:disabled ~ .liquid-glass__checkbox-box,"
+                    ".liquid-glass__radio-input:disabled ~ .liquid-glass__radio-box")
+               {:opacity "1" :border-color "GrayText"}]
+              ;; checked/filled states carry meaning, so they take the system
+              ;; accent instead of the accent tint (which is invisible here)
+              [(str ".liquid-glass__toggle-input:checked ~ .liquid-glass__toggle-track,"
+                    ".liquid-glass__checkbox-input:checked ~ .liquid-glass__checkbox-box,"
+                    ".liquid-glass__progress-bar-fill")
+               {:background "Highlight" :border-color "Highlight"}]
+              [".liquid-glass__radio-input:checked ~ .liquid-glass__radio-box::after"
+               {:background "Highlight"}]
+              ;; the two-tone ring's own colors are not in the forced palette
+              [(str (btn-sel nil ":focus-visible") ",.liquid-glass__tab:focus-visible,"
+                    ".liquid-glass__menu-item:focus-visible,.liquid-glass__list-row:focus-visible,"
+                    ".liquid-glass__text-field:focus-within,.liquid-glass__text-area:focus-within,"
+                    ".liquid-glass__search-field:focus-within,.liquid-glass__menu-select:focus-within")
+               {:outline-color "Highlight" :box-shadow "none"}]]))
 
 (defn- overlay-motion-rules []
   ;; Overlay presence transitions, pure CSS (SSR-friendly): the *enter*
@@ -518,6 +790,21 @@
   ;; this fallback).
   [[".liquid-glass--lens" (backdrop-decls :regular)]])
 
+(defn- base-rules-groups []
+  [base-rules panel-rules button-rules toolbar-tabbar-rules sheet-scrim-badge-rules
+   form-field-rules field-rules banner-rules toggle-rules checkbox-radio-rules
+   slider-rules stepper-rules progress-rules gauge-rules misc-rules nav-bar-rules
+   alert-rules menu-rules list-rules chip-rules disclosure-rules
+   overlay-motion-rules specular-pointer-rules lens-rules])
+
+(defn base-rules-data
+  "Every unconditional rule — the material itself, with no interaction state.
+  `component-css` emits this block first; `hover-rules` / `press-rules` /
+  `focus-rules` follow it in that order (see each of their docstrings for why
+  the order is load-bearing)."
+  []
+  (vec (mapcat (fn [f] (f)) (base-rules-groups))))
+
 (defn component-rules
   "The Tier B rule set as EDN data — a vector of `[selector decls-map]` pairs,
   the same shape `css.core/css`'s `:rules` consumes. Exposed (not just the
@@ -525,14 +812,16 @@
   shadow-css `:pages` extraction — can assert against declarations directly
   instead of regex-scraping rendered CSS text. This is the whole point of the
   css.core migration: a selector with no matching entry here, or a `:box-shadow`
-  that's missing the rim vars, is a data assertion instead of a string search."
+  that's missing the rim vars, is a data assertion instead of a string search.
+
+  Returns base → hover → press → focus concatenated, i.e. the *whole* rule
+  set in cascade order. Note that `component-css` wraps the hover slice in
+  `@media (hover: hover)`; a consumer rendering this vector directly gets
+  every rule but loses that guard, so prefer `component-css` (or compose
+  `base-rules-data` / `hover-rules` / `press-rules` / `focus-rules`
+  yourself)."
   []
-  (vec (mapcat (fn [f] (f))
-               [base-rules panel-rules button-rules toolbar-tabbar-rules sheet-scrim-badge-rules
-                form-field-rules toggle-rules checkbox-radio-rules slider-rules stepper-rules
-                progress-rules gauge-rules misc-rules nav-bar-rules alert-rules menu-rules
-                list-rules chip-rules disclosure-rules
-                overlay-motion-rules specular-pointer-rules lens-rules])))
+  (vec (concat (base-rules-data) (hover-rules) (press-rules) (focus-rules))))
 
 (def ^:private motion-keyframes
   "CSS @keyframes for the overlay presence transitions (plus the spinner). Frame
@@ -660,13 +949,19 @@
   []
   (str
    (css/css
-    {:rules (component-rules)
+    {:rules (base-rules-data)
      :keyframes motion-keyframes})
+   ;; interaction states, in the only order that works: hover (pointer-gated)
+   ;; → press/disabled → focus. Equal specificity throughout, so each slice
+   ;; can only beat the one before it by being later.
+   "\n" (css/media "(hover: hover)" (hover-rules))
+   "\n" (css/css {:rules (vec (concat (press-rules) (focus-rules)))})
    "\n.liquid-glass__specular{display:none;}\n" ;; static visual is the ::before overlay; the span upgrades to the pointer highlight only under .liquid-glass-js (see specular-pointer-rules / docs/design.md)
    "\n" (supports-fallback-css)
    "\n" (spring-supports-css)
    "\n" (lens-supports-css)
-   "\n" (reduced-motion-css)))
+   "\n" (reduced-motion-css)
+   "\n" (forced-colors-css)))
 
 ;; --- cascade layer -----------------------------------------------------
 ;;

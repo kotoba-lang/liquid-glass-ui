@@ -170,9 +170,17 @@
   (let [css (s/component-css)
         rm-at (str/last-index-of css "@media (prefers-reduced-motion: reduce)")
         block (subs css rm-at)]
-    (testing "the guard is the LAST block so it out-cascades the @supports spring upgrade"
+    (testing "the guard out-cascades every motion block above it (the @supports spring upgrade included)"
       (is (> rm-at (str/index-of css "@supports (transition-timing-function")))
-      (is (> rm-at (str/index-of css "@supports (backdrop-filter: url"))))
+      (is (> rm-at (str/index-of css "@supports (backdrop-filter: url")))
+      (testing "the one block that follows it is forced-colors, which declares no motion at all
+                -- so 'last' still holds for everything this guard is about"
+        (let [after (subs css (+ rm-at (count "@media (prefers-reduced-motion: reduce)")))
+              fc-at (str/index-of after "@media (forced-colors: active)")
+              fc (subs after fc-at)]
+          (is (some? fc-at))
+          (is (not (str/includes? fc "transition:")))
+          (is (not (str/includes? fc "animation:"))))))
     (testing "overlay animations off, including the higher-specificity closing variants"
       (is (str/includes? block "animation: none"))
       (is (str/includes? block ".liquid-glass__alert[data-state=\"closing\"]")))
@@ -191,3 +199,114 @@
     (testing "the nested sub-elements with their OWN separate transition (not glass-surface roots) are still covered"
       (doseq [c ["tab" "toggle-thumb" "progress-bar-fill" "disclosure-chevron"]]
         (is (str/includes? block (str ".liquid-glass__" c)))))))
+
+;; --- DADS-ported maturity: focus ring, pointer gating, forced colors -------
+
+(defn- focus-ring-for
+  "The focus declarations whose selector list covers `sel`, from the focus-rules
+  DATA -- deliberately not from the rendered sheet. Grepping the string finds
+  `.liquid-glass__button:focus-visible` inside the forced-colors block (which
+  only recolors an outline that something else has to declare) and would call
+  a component covered when it has no ring at all. Verified by mutation: with
+  the button's focus rule deleted, the string check still passed."
+  [sel]
+  (some (fn [[selector decls]]
+          (when (some #(= sel %) (str/split selector #","))
+            decls))
+        (s/focus-rules)))
+
+(deftest every-interactive-surface-has-a-focus-ring-test
+  (testing "before this, the ONLY :focus-visible rule in the whole sheet was the toggle track --
+            a keyboard user tabbing through a glass UI saw nothing on buttons, tabs, menu items,
+            list rows, chips, disclosure summaries, sliders or select (WCAG 2.4.7, level A).
+            The design-quality audit still scored the showcase 100.00, because its focus axis is
+            a regex for the string ':focus-visible' anywhere in the page"
+    (doseq [sel [".liquid-glass__button:focus-visible"
+                 ".liquid-glass__icon-button:focus-visible"
+                 ".liquid-glass__tab:focus-visible"
+                 ".liquid-glass__menu-item:focus-visible"
+                 ".liquid-glass__chip:focus-visible"
+                 ".liquid-glass__list-row:focus-visible"
+                 ".liquid-glass__disclosure-summary:focus-visible"
+                 ".liquid-glass__slider:focus-visible"
+                 ".liquid-glass__checkbox-input:focus-visible ~ .liquid-glass__checkbox-box"
+                 ".liquid-glass__radio-input:focus-visible ~ .liquid-glass__radio-box"
+                 ".liquid-glass__toggle-input:focus-visible ~ .liquid-glass__toggle-track"]]
+      (let [decls (focus-ring-for sel)]
+        (is (some? decls) (str "no focus ring for " sel))
+        (is (str/includes? (str (:outline decls)) "--liquid-glass-focus-ring-color")
+            (str sel " has a focus rule but no ring")))))
+  (testing "text controls take the ring on the wrapper (the input inside is transparent and border-less)"
+    (is (some? (focus-ring-for ".liquid-glass__text-field:focus-within")))))
+
+(deftest focus-ring-is-two-tone-and-token-driven-test
+  (let [focus (->> (s/focus-rules)
+                   (filter (fn [[sel _]] (= sel ".liquid-glass__tab:focus-visible")))
+                   first second)]
+    (testing "an outline AND an inner halo -- one color is never enough for a material that
+              floats over arbitrary content: black covers light backdrops, yellow covers dark"
+      (is (str/includes? (:outline focus) "var(--liquid-glass-focus-ring-color)"))
+      (is (= "var(--liquid-glass-focus-ring-offset)" (:outline-offset focus)))
+      (is (str/includes? (:box-shadow focus) "var(--liquid-glass-focus-halo-color)")))
+    (testing "no literal colors -- the ring is retunable through the token pipeline like everything else"
+      (is (not (re-find #"#[0-9a-fA-F]{3,6}" (str focus)))))))
+
+(deftest focus-ring-preserves-the-glass-edge-test
+  (testing "box-shadow REPLACES rather than composes, so a focus halo on an elevated surface has to
+            re-emit that surface's elevation + rim -- otherwise focusing a button deletes the glass
+            edge for exactly the users who need the strongest anchor"
+    (doseq [[sel decls] (s/focus-rules)
+            :let [shadow (:box-shadow decls)]
+            :when (str/includes? shadow "elevation")]
+      (is (str/includes? shadow "specular-rim-top-opacity") (str sel " lost its top rim on focus"))
+      (is (str/includes? shadow "specular-rim-bottom-opacity") (str sel " lost its bottom rim on focus")))
+    (testing "the button, which is :raised, is one of them"
+      (let [btn (focus-ring-for ".liquid-glass__button:focus-visible")]
+        (is (some? btn))
+        (is (str/includes? (str (:box-shadow btn)) "var(--liquid-glass-elevation-raised-shadow)"))))))
+
+(deftest hover-is-gated-behind-a-hover-capable-pointer-test
+  (let [css (s/component-css)
+        hover-at (str/index-of css "@media (hover: hover)")]
+    (testing "a touch device has no way to send 'pointer left', so an unguarded :hover sticks
+              until the next tap elsewhere -- the button floats up and stays up"
+      (is (some? hover-at))
+      (is (empty? (filter (fn [[sel _]] (str/includes? sel ":hover")) (s/base-rules-data)))
+          "a :hover rule escaped into the unguarded base block"))
+    (testing "cascade order is load-bearing: base -> hover -> press -> focus, all equal specificity"
+      (let [press-at (str/index-of css ".liquid-glass__button:active")
+            focus-at (str/index-of css ".liquid-glass__button:focus-visible")]
+        (is (< hover-at press-at) "hover after press would win while the pointer is both hovering and pressing")
+        (is (< press-at focus-at))))))
+
+(deftest forced-colors-fallback-test
+  (let [css (s/component-css)
+        block (subs css (str/index-of css "@media (forced-colors: active)"))]
+    (testing "the material is built from what forced-colors strips (box-shadow -> none) or cannot
+              see (backdrop-filter), so the surface has to be handed back to the system palette"
+      (is (str/includes? block "backdrop-filter: none"))
+      (is (str/includes? block "background: Canvas"))
+      (is (str/includes? block "border-color: ButtonBorder")))
+    (testing "the specular ::before is a mix-blend-mode gradient that is NOT stripped -- left alone
+              it paints a wash over content it no longer sits behind"
+      (is (str/includes? block ".liquid-glass__panel::before")))
+    (testing "the one that matters most: opacity is not part of the forced palette, so a
+              dimmed-by-opacity disabled control stays dimmed AND gets recolored"
+      (is (str/includes? block "opacity: 1"))
+      (is (str/includes? block "GrayText")))
+    (testing "state that carries meaning takes the system accent"
+      (is (str/includes? block "Highlight")))))
+
+(deftest status-tokens-are-wired-and-scheme-aware-test
+  (let [css (s/root-css)]
+    (testing "DADS's semantic colors, and a dark variant -- upstream has no dark palette, and its
+              light values are tuned for contrast against white, not against dark glass"
+      (is (str/includes? css "--liquid-glass-status-error: #ec0000;"))
+      (is (str/includes? css "--liquid-glass-status-error: #ff8a8a;")))
+    (testing "the focus ring is deliberately NOT redeclared per scheme -- flipping the outline to
+              white in dark mode would make both tones light and lose the two-tone guarantee"
+      (let [dark (subs css (str/index-of css "@media (prefers-color-scheme: dark)"))]
+        (is (not (str/includes? dark "--liquid-glass-focus-")))))
+    (testing "and they are actually referenced by a rule, not orphaned tokens"
+      (is (str/includes? (s/component-css) "var(--liquid-glass-status-error)"))
+      (is (str/includes? (s/component-css) "var(--liquid-glass-status-success)")))))

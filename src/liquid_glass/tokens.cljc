@@ -11,7 +11,10 @@
      :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
      :liquid-glass/accent      {:tint ... :tint-strong ...}
      :liquid-glass/lens        {:frequency ... :scale ... :octaves ...}
-     :liquid-glass/ink         {:default ... :shadow ...}}
+     :liquid-glass/ink         {:default ... :shadow ...}
+     :liquid-glass/focus       {:ring-width ... :ring-offset ... :ring-color ...
+                                :halo-width ... :halo-color ...}
+     :liquid-glass/status      {:error ... :warning ... :success ... :info ...}}
 
   `default-tokens` is the light-scheme material. `dark-tokens` is a *partial*
   override map (surface tint/border, specular opacity, and ink — the values a
@@ -116,7 +119,44 @@
     :octaves   "2"}
    :liquid-glass/ink
    {:default "#1c1c1e"
-    :shadow  "0 1px 2px rgba(255,255,255,.4)"}})
+    :shadow  "0 1px 2px rgba(255,255,255,.4)"
+    ;; Ink for text sitting ON the accent fill (the `--solid-fill` button
+    ;; variant). Scheme-independent: the accent tint is the same in light and
+    ;; dark, so the text on it is too.
+    :on-accent "#ffffff"}
+   ;; Keyboard focus indicator, ported from the Digital Agency Design System
+   ;; (DADS) via kotoba-lang/jp-go-digital-design-system: a TWO-TONE
+   ;; concentric ring — a `:halo` filling 0..halo-width outside the border
+   ;; box, then a `:ring` starting at `:ring-offset` (= halo-width, so they
+   ;; meet with no gap). DADS's numbers verbatim: 4px #000000 outline,
+   ;; 2px offset, 2px #ffd43d box-shadow halo.
+   ;;
+   ;; Two tones, not one, because a glass surface floats over *arbitrary*
+   ;; content: a single-color ring is invisible whenever the backdrop happens
+   ;; to match it. Black covers light backdrops, yellow covers dark ones, and
+   ;; one of the pair always contrasts. That is also why these are NOT
+   ;; redeclared in `dark-tokens` — flipping the ring to white in dark mode
+   ;; would make BOTH tones light and lose the guarantee. The pair is
+   ;; scheme-independent on purpose.
+   :liquid-glass/focus
+   {:ring-width  "4px"
+    :ring-offset "2px"
+    :ring-color  "#000000"
+    :halo-width  "2px"
+    :halo-color  "#ffd43d"}
+   ;; Semantic status ink — the required-field marker, field error text, and
+   ;; the `notification-banner` accent. Light values are DADS's semantic
+   ;; colors verbatim (`--color-semantic-{error,warning,success}-1`, i.e.
+   ;; red-800 / yellow-700 / green-600, plus blue-900 for info) so a page that
+   ;; mixes this skin with jp-go-digital-design-system components agrees on
+   ;; what "error" looks like. Unlike `:focus`, these ARE redeclared in
+   ;; `dark-tokens`: they are used as *text* color, and DADS's light-scheme
+   ;; values are chosen for contrast against white, not against dark glass.
+   :liquid-glass/status
+   {:error   "#ec0000"
+    :warning "#b78f00"
+    :success "#259d63"
+    :info    "#0017c1"}})
 
 (def dark-tokens
   "Partial override applied inside `@media (prefers-color-scheme: dark)`. Only
@@ -133,7 +173,17 @@
     :pointer   {:opacity "0.28"}}
    :liquid-glass/ink
    {:default "#f5f5f7"
-    :shadow  "0 1px 3px rgba(0,0,0,.45)"}})
+    :shadow  "0 1px 3px rgba(0,0,0,.45)"}
+   ;; DADS's light-scheme status colors are tuned against white; on dark glass
+   ;; #ec0000/#0017c1 in particular fall well under 4.5:1. Lightened here to
+   ;; the same hues (this is our extension — upstream DADS has no dark
+   ;; palette, the same situation jp-go-digital-design-system's `dark` ns
+   ;; documents).
+   :liquid-glass/status
+   {:error   "#ff8a8a"
+    :warning "#e3b341"
+    :success "#5fd39b"
+    :info    "#8ab4ff"}})
 
 (def deep-merge
   "Re-exported from shitsuke.tokens: right-biased recursive merge for token maps."

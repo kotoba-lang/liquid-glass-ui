@@ -19,6 +19,63 @@
 (deftest icon-button-test
   (is (str/includes? (html (c/icon-button "x")) "liquid-glass__icon-button")))
 
+;; --- DADS-ported button axes (variant / size / href / attrs) ---------------
+
+(deftest button-variant-size-modifiers-test
+  (testing "the defaults emit NO modifier class — a button written before these axes renders identically"
+    (is (= (html (c/button "Go" {:act :go}))
+           (html (c/button "Go" {:act :go :variant :outline :size :md}))))
+    (is (not (str/includes? (html (c/button "Go")) "liquid-glass__button--"))))
+  (testing "non-default variant/size add exactly their modifier"
+    (is (str/includes? (html (c/button "Go" {:variant :solid-fill})) "liquid-glass__button--solid-fill"))
+    (is (str/includes? (html (c/button "Go" {:variant :text})) "liquid-glass__button--text"))
+    (is (str/includes? (html (c/button "Go" {:size :sm})) "liquid-glass__button--sm"))
+    (is (str/includes? (html (c/button "Go" {:variant :solid-fill :size :lg}))
+                       "liquid-glass__button--solid-fill liquid-glass__button--lg")))
+  (testing "icon-button gets its own modifier namespace, not the button one"
+    (let [out (html (c/icon-button "x" {:size :xs}))]
+      (is (str/includes? out "liquid-glass__icon-button--xs"))
+      (is (not (str/includes? out "liquid-glass__button--xs")))))
+  (testing "variant/size never leak into the rendered attributes"
+    (let [out (html (c/button "Go" {:variant :text :size :sm}))]
+      (is (not (str/includes? out "variant=")))
+      (is (not (str/includes? out "size="))))))
+
+(deftest button-compact-sizes-keep-a-44px-touch-target-test
+  (testing "sm/xs shrink the painted box but keep the 44px hit area (DADS's ::after expander) — the whole reason a compact size is safe to offer"
+    (let [css (s/component-css)]
+      (doseq [size ["sm" "xs"]]
+        (is (str/includes? css (str ".liquid-glass__button--" size "::after"))
+            (str size " has no hit-area expander")))
+      ;; and the expander is not clipped away by the base rule's overflow
+      (is (str/includes? css "overflow: visible")))))
+
+(deftest button-href-renders-an-anchor-test
+  (let [out (html (c/button "Docs" {:href "/docs" :act :nav}))]
+    (testing "an <a>, not a <button>, but carrying the same class + act contract"
+      (is (str/starts-with? out "<a "))
+      (is (str/includes? out "href=\"/docs\""))
+      (is (str/includes? out "liquid-glass__button"))
+      (is (str/includes? out "shitsuke__button"))
+      (is (str/includes? out "data-act=\"nav\"")))
+    (testing "attributes that are invalid on <a> are dropped"
+      (is (not (str/includes? out "type=\"button\"")))))
+  (testing "a disabled link has no href at all — that, not an attribute, is what makes it unactivatable"
+    (let [out (html (c/button "Docs" {:href "/docs" :disabled true}))]
+      (is (not (str/includes? out "href=")))
+      (is (str/includes? out "aria-disabled=\"true\""))
+      (is (str/includes? out "role=\"link\"")))))
+
+(deftest button-attrs-passthrough-test
+  (let [out (html (c/button "Go" {:act :go :attrs {:data-testid "go" :aria-haspopup "menu"}}))]
+    (is (str/includes? out "data-testid=\"go\""))
+    (is (str/includes? out "aria-haspopup=\"menu\"")))
+  (testing "component-generated attrs win — :attrs can annotate but never clobber (same contract as list-row)"
+    (let [out (html (c/button "Go" {:act :go :attrs {:class "hijack" :data-act "hijack"}}))]
+      (is (str/includes? out "liquid-glass__button"))
+      (is (str/includes? out "data-act=\"go\""))
+      (is (not (str/includes? out "data-act=\"hijack\""))))))
+
 (deftest toolbar-test
   (let [out (html (c/toolbar [(c/button "A") (c/button "B")]))]
     (is (str/includes? out "liquid-glass__toolbar"))
@@ -337,6 +394,84 @@
 
 ;; --- cross-check: every rendered base class has a component-css rule ------
 
+;; --- field (DADS form-control-label) --------------------------------------
+
+(deftest field-control-attrs-test
+  (let [opts {:id "email" :label "Email" :support "We'll confirm."
+              :error "Not a valid address." :required? true}]
+    (testing "every association the field's text needs, keyed off :id"
+      (is (= {:id "email"
+              :aria-describedby "email-support email-error"
+              :aria-invalid "true"
+              :aria-required "true"}
+             (c/field-control-attrs opts))))
+    (testing "describedby lists only the text that is actually rendered, in reading order"
+      (is (= "email-support" (:aria-describedby (c/field-control-attrs (dissoc opts :error)))))
+      (is (= "email-error" (:aria-describedby (c/field-control-attrs (dissoc opts :support)))))
+      (is (nil? (:aria-describedby (c/field-control-attrs (dissoc opts :support :error))))))
+    (testing "aria-invalid appears only while there IS an error"
+      (is (nil? (:aria-invalid (c/field-control-attrs (dissoc opts :error))))))
+    (testing "no :id means nothing to point at, so no id and no describedby — but the control's
+              own state (invalid/required) is intrinsic and still applies"
+      (is (= {:aria-invalid "true" :aria-required "true"}
+             (c/field-control-attrs (dissoc opts :id)))))))
+
+(deftest field-test
+  (let [opts {:id "email" :label "Email" :requirement "Required" :required? true
+              :support "We'll confirm." :error "Not a valid address."}
+        out (html (c/field opts (c/text-field (c/field-control-attrs opts))))]
+    (testing "label is associated with the control"
+      (is (str/includes? out "for=\"email\""))
+      (is (str/includes? out "id=\"email\"")))
+    (testing "support and error carry the ids aria-describedby points at"
+      (is (str/includes? out "id=\"email-support\""))
+      (is (str/includes? out "id=\"email-error\""))
+      (is (str/includes? out "aria-describedby=\"email-support email-error\"")))
+    (testing "the error is announced when it appears, and marks the wrapper invalid"
+      (is (str/includes? out "role=\"alert\""))
+      (is (str/includes? out "data-invalid=\"true\""))
+      (is (str/includes? out "aria-invalid=\"true\"")))
+    (testing "the requirement marker distinguishes required from optional (only required is red)"
+      (is (str/includes? out "data-required=\"true\""))
+      (is (str/includes? (html (c/field {:label "Nickname" :requirement "Optional"} [:input]))
+                         "data-required=\"false\""))))
+  (testing "a field with no error renders neither the alert nor the invalid flag"
+    (let [out (html (c/field {:id "x" :label "L"} (c/text-field {:id "x"})))]
+      (is (not (str/includes? out "role=\"alert\"")))
+      (is (not (str/includes? out "data-invalid"))))))
+
+;; --- banner (DADS notification-banner) ------------------------------------
+
+(deftest banner-test
+  (let [out (html (c/banner "Saved." {:type :success :heading "Done"
+                                      :timestamp {:datetime "2026-08-05" :text "Aug 5"}
+                                      :actions [(c/button "Undo" {:size :sm})]}))]
+    (is (str/includes? out "liquid-glass__banner"))
+    (is (str/includes? out "liquid-glass__banner--success"))
+    (is (str/includes? out "<h2"))
+    (is (str/includes? out "datetime=\"2026-08-05\""))
+    (is (str/includes? out "liquid-glass__button--sm"))
+    (is (str/includes? out "liquid-glass__specular")))
+  (testing "live-region semantics follow urgency: error/warning interrupt, info/success don't"
+    (is (str/includes? (html (c/banner "x" {:type :error})) "role=\"alert\""))
+    (is (str/includes? (html (c/banner "x" {:type :warning})) "role=\"alert\""))
+    (is (str/includes? (html (c/banner "x" {:type :success})) "role=\"status\""))
+    (is (str/includes? (html (c/banner "x")) "role=\"status\"")))
+  (testing "the default type is silent, like every other default variant here"
+    (is (not (str/includes? (html (c/banner "x")) "liquid-glass__banner--"))))
+  (testing "the icon is decorative, so the status type reaches a screen reader as text"
+    (let [out (html (c/banner "x" {:type :error}))]
+      (is (str/includes? out "aria-hidden"))
+      (is (str/includes? out "liquid-glass__sr-only"))
+      (is (str/includes? out "Error")))
+    (testing "localisable, and omittable when the heading already says it"
+      (is (str/includes? (html (c/banner "x" {:type :error :type-label "エラー"})) "エラー"))
+      (is (not (str/includes? (html (c/banner "x" {:type-label false})) "sr-only")))))
+  (testing ":attrs passthrough, component attrs win"
+    (let [out (html (c/banner "x" {:attrs {:data-testid "b" :role "hijack"}}))]
+      (is (str/includes? out "data-testid=\"b\""))
+      (is (str/includes? out "role=\"status\"")))))
+
 (def ^:private every-component-sample
   [(c/button "x") (c/icon-button "x") (c/toolbar [(c/button "x")])
    (c/tab-bar [[:a "A"]] :a) (c/panel "x") (c/sheet "x") (c/scrim) (c/badge "1")
@@ -345,7 +480,11 @@
    (c/progress-bar 1) (c/progress-circle) (c/gauge 50) (c/divider) (c/label "x" "x") (c/avatar "x")
    (c/nav-bar "x") (c/alert "x") (c/menu [{:label "x"}]) (c/tooltip "x")
    (c/list-view [(c/list-row "x" {:trailing "x"})])
-   (c/chip "x" {:on-remove-act :x}) (c/disclosure "x" [[:p "x"]])])
+   (c/chip "x" {:on-remove-act :x}) (c/disclosure "x" [[:p "x"]])
+   (c/banner "x" {:heading "h" :timestamp {:datetime "2026-08-05" :text "x"}
+                  :actions [(c/button "x")]})
+   (c/field {:id "x" :label "L" :requirement "R" :status "S" :support "s" :error "e"}
+            (c/text-field {:id "x"}))])
 
 ;; --- data-level checks against s/component-rules (not the rendered string) -
 ;; The point of the css.core migration: assert against the EDN rules directly
@@ -356,6 +495,15 @@
     (doseq [[sel decls] (s/component-rules)]
       (is (string? sel))
       (is (map? decls)))))
+
+(deftest no-exactly-duplicated-rule-test
+  (testing "the same selector with the same declarations twice is always dead weight — it means a
+            rule survived a refactor in both its old and new home. Caught exactly that: the
+            --text variant's ::before reset was emitted twice after press-rules was split out"
+    (let [dupes (->> (s/component-rules)
+                     frequencies
+                     (keep (fn [[rule n]] (when (> n 1) (first rule)))))]
+      (is (empty? dupes) (str "duplicated rules: " (pr-str dupes))))))
 
 (deftest every-elevation-shadow-carries-both-rim-vars-test
   (testing "no rule can have an elevation box-shadow without the rim edge-light (the panel--flat/orphaned-rim bug class, at the data level)"

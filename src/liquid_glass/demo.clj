@@ -49,6 +49,7 @@ body{margin:0;min-height:100vh;min-height:100dvh;font-family:-apple-system,Blink
 .liquid-glass__menu-select select option{color:#1c1c1e;}
 .demo-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:start;}
 .demo-inline{display:flex;gap:20px;flex-wrap:wrap;align-items:center;}
+.demo-banner-stack{display:flex;flex-direction:column;gap:16px;max-width:640px;}
 .demo-inline label{display:inline-flex;}
 .demo-progress-wrap{max-width:280px;display:flex;flex-direction:column;gap:16px;}
 .demo-overlay-wrap{position:relative;min-height:170px;}
@@ -142,10 +143,35 @@ body{margin:0;min-height:100vh;min-height:100dvh;font-family:-apple-system,Blink
 
      [:section.demo-section
       [:h2 "Buttons"]
+      [:p.demo-note
+       "Three variants and four sizes, ported from the Digital Agency Design System's button
+        (via " [:a {:href "https://github.com/kotoba-lang/jp-go-digital-design-system"} "jp-go-digital-design-system"]
+       "). " [:code ":solid-fill"] " tints the same material with the accent rather than replacing
+        it with an opaque swatch, so a primary action still refracts what is behind it;
+        " [:code ":text"] " drops the surface entirely, because a tertiary action inside a glass
+        panel should not stack a second sheet of glass on the first."]
       [:div.demo-row
-       (lg/button "Continue" {:act :continue})
+       (lg/button "Continue" {:act :continue :variant :solid-fill})
+       (lg/button "Cancel" {:act :cancel})
+       (lg/button "Learn more" {:act :learn :variant :text})
+       (lg/button "Docs" {:href "https://github.com/kotoba-lang/liquid-glass-ui"})
        (lg/button "Disabled" {:disabled true})
-       (lg/icon-button "♥")]]
+       (lg/icon-button "♥")]
+      [:p.demo-note {:style {:margin-top "16px"}}
+       [:code ":sm"] " and " [:code ":xs"] " shrink the painted control to 36px and 28px but keep a
+        full 44px touch target via a transparent centred " [:code "::after"] " — DADS's technique.
+        Before it, going smaller meant a consumer overriding " [:code "min-height"] " and silently
+        destroying the tap target, so this library simply had no small button."]
+      [:div.demo-inline
+       (lg/button "Large" {:size :lg})
+       (lg/button "Medium")
+       (lg/button "Small" {:size :sm})
+       (lg/button "Extra small" {:size :xs})]
+      [:p.demo-note {:style {:margin-top "16px"}}
+       "Tab through this page: every interactive surface now draws the two-tone focus ring
+        (a black outline over a yellow halo, both tokens). One color is never enough for a
+        material that floats over arbitrary content — black covers light backdrops, yellow
+        covers dark ones."]]
 
      [:section.demo-section
       [:h2 "Form controls"]
@@ -161,6 +187,44 @@ body{margin:0;min-height:100vh;min-height:100dvh;font-family:-apple-system,Blink
       [:div.demo-inline {:style {:margin-top "16px"}}
        [:div {:style {:flex "1" :min-width "200px"}} (lg/slider {:value 60})]
        (lg/stepper 3 {:dec-act :dec :inc-act :inc})]]
+
+     [:section.demo-section
+      [:h2 "Labelled fields"]
+      [:p.demo-note
+       "Ported from DADS " [:code "form-control-label"] ". Until this existed the library shipped six
+        form controls and no way to label any of them, so support and error text — the part that
+        has to be " [:em "announced"] " — was routinely left unassociated: markup that reads as
+        accessible and is not. " [:code "field-control-attrs"] " derives the ids and hands back the
+        " [:code "aria-describedby"] " / " [:code "aria-invalid"] " the control has to carry."]
+      [:div.demo-form-grid
+       (let [f {:id "demo-email" :label "Email" :requirement "Required" :required? true
+                :support "We'll send a confirmation here."}]
+         (lg/field f (lg/text-field (merge (lg/field-control-attrs f)
+                                           {:type "email" :placeholder "you@example.com"}))))
+       (let [f {:id "demo-handle" :label "Handle" :requirement "Optional"
+                :status "Draft"
+                :error "That handle is already taken."}]
+         (lg/field f (lg/text-field (merge (lg/field-control-attrs f) {:value "jun"}))))]]
+
+     [:section.demo-section
+      [:h2 "Status banners"]
+      [:p.demo-note
+       "DADS " [:code "notification-banner"] ", as glass. Distinct from " [:code "alert"] ", which is a
+        centred modal that interrupts: this stays in the flow and blocks nothing — the far more
+        common shape, and the one this library had no component for at all. The status color rides
+        on the left edge rather than as a background wash, because a wash would have to be opaque
+        to be legible, which is the one thing this material must not be."]
+      [:div.demo-banner-stack
+       (lg/banner "Your changes are live."
+                  {:type :success :heading "Deployed"
+                   :timestamp {:datetime "2026-08-05" :text "August 5, 2026"}
+                   :actions [(lg/button "View site" {:size :sm})]})
+       (lg/banner "Two fields need attention before this form can be submitted."
+                  {:type :error :heading "Couldn't save"
+                   :actions [(lg/button "Review" {:size :sm :variant :solid-fill})
+                             (lg/button "Dismiss" {:size :sm :variant :text})]})
+       (lg/banner "Scheduled maintenance this Sunday, 02:00–04:00 UTC." {:type :warning})
+       (lg/banner "The API now returns cursor-based pagination." {:heading "What's new"})]]
 
      [:section.demo-section
       [:h2 "Feedback"]

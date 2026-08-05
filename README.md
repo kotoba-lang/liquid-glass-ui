@@ -16,12 +16,13 @@ components that wrap (or, where no shitsuke equivalent exists, extend)
 `shitsuke.components` with glass classes and a specular-highlight decoration.
 
 ```text
-liquid-glass-ui = material tokens (blur/saturate/tint/elevation/specular/radius/motion/accent/ink)
+liquid-glass-ui = material tokens (blur/saturate/tint/elevation/specular/radius/motion/
+                                    accent/ink/focus/status)
                   + style (css.core EDN rules -> CSS vars + component-css, portable, no build step)
-                  + 29 components: panel/toolbar/nav-bar/tab-bar/sheet/alert/menu/scrim/list/disclosure
+                  + 31 components: panel/toolbar/nav-bar/tab-bar/sheet/alert/menu/scrim/list/disclosure
                     + button/icon-button/text-field/text-area/search-field/menu-select/
-                      toggle/checkbox/radio/slider/stepper
-                    + progress-bar/progress-circle/gauge/badge/chip/label/avatar/divider/tooltip
+                      toggle/checkbox/radio/slider/stepper/field
+                    + banner/progress-bar/progress-circle/gauge/badge/chip/label/avatar/divider/tooltip
                   on top of shitsuke (tokens/hiccup/style/re-frame/components)
                   + kotoba-lang/css (css.core — EDN-to-CSS rule generation)
 ```
@@ -30,6 +31,17 @@ Component coverage targets the practical subset of SwiftUI's control catalog
 a glass DOM/CSS skin can actually express — see `docs/design.md` for the full
 per-component table and what's explicitly out of scope (DatePicker/ColorPicker
 and friends — native-OS-only widgets a CSS skin can't meaningfully re-skin).
+
+The *contracts around* the material — button variant × size, the keyboard
+focus ring, labelled fields, the inline status banner, pointer-gated hover and
+the forced-colors fallback — are ported from the Japanese Digital Agency
+Design System (DADS) via this workspace's
+[`kotoba-lang/jp-go-digital-design-system`](https://github.com/kotoba-lang/jp-go-digital-design-system),
+with DADS's numbers kept verbatim (4px/2px/2px focus ring, 44px hit target,
+semantic colors). **The material itself is unchanged**: the default variant
+and default size emit no class and no rule, so every component written before
+this renders byte-identically. See `docs/design.md` § "Ported from the Digital
+Agency Design System" and `docs/adr/0004-dads-derived-component-maturity.md`.
 
 Beyond the static material, four opt-in/progressive motion & dynamic-effect
 layers (all pure CSS or degrade to the static material with no JS, all
@@ -50,9 +62,9 @@ per-layer breakdown and honest engine-support notes.
 
 | layer | role |
 |---|---|
-| `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion` `:accent` `:ink`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
-| `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-rules` (Tier B as EDN `[selector decls]` data) + `component-css` (`component-rules` rendered via `css.core/css` — backdrop-filter+brightness, radial specular overlay, top/bottom rim edge light, default ink text color+shadow, elevation shadow, press/hover motion, reduced-motion + no-backdrop-filter fallback) + `layered-css` (the bundle wrapped in the `kotoba.glass` cascade layer — what consumers inject) |
-| `liquid-glass.components` | 29 pure-hiccup glass primitives — see `docs/design.md` for the full table |
+| `liquid-glass.tokens` | material token IR (`:liquid-glass/surface` `:elevation` `:specular` `:radius` `:motion` `:accent` `:ink` `:focus` `:status`) + light/dark resolver + `:root` / `@media (prefers-color-scheme: dark)` CSS-var emitter |
+| `liquid-glass.style` | `class-name` registry (`liquid-glass__<component>`) + `root-css` (Tier A vars) + `component-rules` (Tier B as EDN `[selector decls]` data; `base-rules-data` / `hover-rules` / `press-rules` / `focus-rules` are the ordered slices) + `component-css` (rendered via `css.core/css` — backdrop-filter+brightness, radial specular overlay, top/bottom rim edge light, default ink text color+shadow, elevation shadow, press motion, pointer-gated hover, two-tone focus ring, reduced-motion + no-backdrop-filter + forced-colors fallbacks) + `layered-css` (the bundle wrapped in the `kotoba.glass` cascade layer — what consumers inject) |
+| `liquid-glass.components` | 31 pure-hiccup glass primitives (+ the `field-control-attrs` helper) — see `docs/design.md` for the full table |
 | shitsuke (dep) | dual-render contract, `act` interaction convention, `button`/`icon-button`/`toolbar`/`card`/`select` primitives that liquid-glass-ui wraps (`text-field`/`text-area`/`search-field` build their native controls directly — see `docs/design.md` § Controls for the reagent keystroke-loss bug that forced this) |
 | `kotoba-lang/css` (dep) | `css.core` — CSS as EDN data (`declarations`/`rule`/`media`/`keyframes`/`css`); liquid-glass-ui is its first real consumer |
 
@@ -130,5 +142,8 @@ See `docs/design.md` for the token/style/component API,
 `docs/adr/0002-css-core-migration-and-ink-token.md` for the `css.core`
 migration + `:ink` token addition, and
 `docs/adr/0003-motion-and-dynamic-effects.md` for the overlay-motion/spring/
-pointer-specular/displacement-lens layer. Superproject-level decision:
+pointer-specular/displacement-lens layer, and
+`docs/adr/0004-dads-derived-component-maturity.md` for the DADS-derived
+button/focus/field/banner/forced-colors work (including why the deterministic
+design-quality audit scored 100.00 both before and after it). Superproject-level decision:
 `90-docs/adr/2607011900-kotoba-lang-liquid-glass-ui.md`.

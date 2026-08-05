@@ -17,7 +17,10 @@ CSS-string value or nested map of CSS props), but with glass-specific groups:
  :liquid-glass/motion      {<phase>   {:duration ... :easing ...}}
  :liquid-glass/accent      {:tint ... :tint-strong ...}
  :liquid-glass/lens        {:frequency ... :scale ... :octaves ...}
- :liquid-glass/ink         {:default ... :shadow ...}}
+ :liquid-glass/ink         {:default ... :shadow ... :on-accent ...}
+ :liquid-glass/focus       {:ring-width ... :ring-offset ... :ring-color ...
+                            :halo-width ... :halo-color ...}
+ :liquid-glass/status      {:error ... :warning ... :success ... :info ...}}
 ```
 
 - `default-tokens` — v1 **light-scheme** material. Three surface variants:
@@ -31,10 +34,14 @@ CSS-string value or nested map of CSS props), but with glass-specific groups:
   is the default text color + a soft counter-shadow for text sitting on the
   material (dark ink + a light shadow in the light scheme; light ink + a dark
   shadow in dark) — see the "Text legibility" note below.
+  `:focus` is the keyboard focus ring (DADS-derived, see § Ported from the
+  Digital Agency Design System) and `:status` the semantic ink for the
+  required marker, field error text and `banner` accent.
 - `dark-tokens` — a **partial** override map (`:surface` tint/border,
-  `:specular` opacity, and `:ink` — the entries that actually change when the
-  content behind the glass goes dark; blur/saturate/radius/motion are
-  scheme-independent and are simply not redeclared).
+  `:specular` opacity, `:ink`, and `:status` — the entries that actually
+  change when the content behind the glass goes dark; blur/saturate/radius/
+  motion are scheme-independent and are simply not redeclared, and `:focus` is
+  deliberately scheme-independent too — see § Keyboard focus for why).
 - `deep-merge` — re-exported from `shitsuke.tokens` (same right-biased
   recursive merge; overrides compose identically across both token sets).
 - `(resolve-tokens overrides)` / `(resolve-dark-tokens dark-overrides)` —
@@ -161,7 +168,7 @@ and why.
 
 | fn | based on | shape |
 |---|---|---|
-| `button` / `icon-button` | `shitsuke.components/button` / `icon-button` | same opts (`:act`, `:disabled`, `:title`, `:type`, `:class`) |
+| `button` / `icon-button` | `shitsuke.components/button` / `icon-button` | shitsuke opts (`:act`, `:disabled`, `:title`, `:type`, `:class`) plus the DADS-ported `:variant`, `:size`, `:href`, `:attrs` — see § Buttons |
 | `text-field` / `text-area` | — (native `<input>`/`<textarea>` built directly; formerly `shitsuke.components/input`/`textarea`, see below) | `(opts wrap-opts?)` — full attr passthrough (`:value` `:placeholder` `:type` `:on-input`/`:on-change` `:on-key-down` `:disabled` `:aria-label` `:aria-describedby` `:maxLength` `:min` `:rows` `:act` ...); `:class` on the wrapper via wrap-opts |
 | `search-field` | (text-field + leading glyph) | same opts as `text-field` |
 
@@ -184,11 +191,14 @@ and why.
 | `checkbox` / `radio` | — | `(label? opts?)` — `radio` groups via `:group` (same-named native `name`) |
 | `slider` | — | `(opts?)` — native `<input type=range>`, glass track+thumb via vendor pseudo-elements |
 | `stepper` | built from `icon-button` | `(value opts?)` — `:dec-act`/`:inc-act` |
+| `field` | DADS `form-control-label` | `(opts control)` — `:id` `:label` `:requirement` `:required?` `:status` `:support` `:error`; pair with `field-control-attrs` — see § Labelled fields |
+| `field-control-attrs` | — | `(opts)` → the `:id`/`:aria-describedby`/`:aria-invalid`/`:aria-required` the control must carry |
 
 **Feedback / content**
 
 | fn | based on | shape |
 |---|---|---|
+| `banner` | DADS `notification-banner` | `(body opts?)` — `:type` (`:info`\|`:success`\|`:warning`\|`:error`), `:heading`/`:heading-level`, `:timestamp`, `:actions`, `:type-label`, `:attrs`; inline and non-blocking, unlike `alert` |
 | `progress-bar` | — | `(value opts?)` — `:max` (default 100), determinate linear fill |
 | `progress-circle` | — | `(opts?)` — indeterminate spinner |
 | `gauge` | — | `(value opts?)` — `:max` (default 100), determinate ring (SwiftUI `Gauge`) via an inline conic-gradient |
@@ -227,6 +237,159 @@ logic for `menu`/`tooltip` (anchor-to-trigger, viewport-edge flipping) is
 deliberately left to the consumer — it needs either JS or CSS
 anchor-positioning, neither of which this repo's "portable `.cljc`, zero
 deps" contract can own without picking a specific runtime.
+
+## Ported from the Digital Agency Design System (DADS)
+
+The material is ours; several of the *contracts around* it are not. They come
+from the Japanese Digital Agency's design system, via this workspace's
+[`kotoba-lang/jp-go-digital-design-system`](https://github.com/kotoba-lang/jp-go-digital-design-system)
+port of it (MIT, © デジタル庁). DADS is a government design system whose job is
+to be usable by everyone on anything, so it has already answered the questions
+a visual skin tends to skip. Nothing below changes what the glass looks like —
+the default variant and default size emit no class and no rule, so every
+component written before this renders byte-identically.
+
+See ADR [0004](adr/0004-dads-derived-component-maturity.md) for the decision
+and the full provenance.
+
+### Buttons — variant × size
+
+| axis | values | DADS spelling |
+|---|---|---|
+| `:variant` | `:outline` (default, silent) · `:solid-fill` · `:text` | `data-type` |
+| `:size` | `:lg` · `:md` (default, silent) · `:sm` · `:xs` | `data-size` |
+
+`:solid-fill` tints the *same material* with the accent instead of replacing
+it with an opaque swatch — a primary action still refracts what is behind it.
+`:text` drops the surface entirely (no tint, no backdrop cost, no shadow),
+because a tertiary action inside a glass panel should not stack a second sheet
+of glass on the first.
+
+**The size scale is the part that mattered.** `:sm` (36px) and `:xs` (28px)
+paint a compact control but keep a full 44px *touch* target, via a transparent
+`::after` centred on the button — DADS's technique, verbatim. Before it the
+library had one size, and the only way to get a smaller button was for a
+consumer to override `min-height`, which silently destroyed the tap target.
+The two compact sizes are also the only ones that set `overflow: visible`: the
+base rule clips to the border box, and a clipped `::after` receives no pointer
+events, so the expander would have been inert.
+
+> **Naming collision worth knowing about.** DADS spells the *variant* `type`;
+> this library spells the *HTML type attribute* `:type` (inherited from
+> shitsuke). Porting markup from jp-go-digital-design-system means
+> `:type :outline` becomes `:variant :outline`.
+
+`:href` renders an `<a>` instead of a `<button>`, built by retagging
+shitsuke's hiccup so the class/`data-act`/`title` contract has one source. A
+disabled link renders with **no `href` at all** — that, not an attribute, is
+what makes it unactivatable and unfocusable — plus `role="link"` +
+`aria-disabled="true"` so it is still announced as the disabled link it is.
+`:attrs` is arbitrary attribute passthrough merged *under* the component's own
+attrs, so it can annotate but never clobber (the contract `list-row` already
+had).
+
+The style layer covers `:disabled` **and** `[aria-disabled="true"]`, as DADS
+does: pass `:attrs {:aria-disabled "true"}` instead of `:disabled` when a
+disabled control must stay focusable and therefore discoverable by a screen
+reader.
+
+### Labelled fields
+
+`field` + `field-control-attrs`, from DADS `form-control-label`. This library
+shipped six form controls and no way to label any of them, so every consumer
+hand-rolled a `<label>` and the support/error text — the part that has to be
+*announced* — was routinely left unassociated: markup that reads as accessible
+and is not.
+
+```clojure
+(let [f {:id "email" :label "Email" :requirement "Required" :required? true
+         :support "We'll send a confirmation here."
+         :error (when invalid? "That address isn't valid.")}]
+  (field f (text-field (merge (field-control-attrs f)
+                              {:value v :on-input on-input}))))
+```
+
+`field-control-attrs` derives `email-support` / `email-error` from `:id` and
+returns the `:aria-describedby` (in reading order), `:aria-invalid` and
+`:aria-required` the control has to carry. It stays a separate fn rather than
+having `field` rewrite the control's hiccup: the controls nest their native
+element (`text-field` is `[:div [:input] specular]`), so injection would mean
+walking a tree and guessing which node is the control — brittle exactly where
+being wrong is silent. Setting `:error` also renders `role="alert"` (so a
+validation failure is announced when it appears) and flips `data-invalid` on
+the wrapper, which colors the control's edge.
+
+Two details taken from DADS because it documents getting them wrong:
+`__requirement` is colored only when `:required?` is true (the *optional*
+marker must not be red), and `:status` is a neutral state badge, **not** a
+required marker.
+
+### Keyboard focus — a two-tone ring on every interactive surface
+
+Before this, the only `:focus-visible` rule in the entire stylesheet was the
+toggle track. Buttons, tabs, menu items, list rows, chips, disclosure
+summaries, sliders and select rendered focus as *nothing* — WCAG 2.4.7 Focus
+Visible, level A.
+
+> Worth stating for anyone measuring this library: the deterministic
+> design-quality audit scored the showcase **100.00, converged** both before
+> and after. Its focus axis is a regex for the string `:focus-visible`
+> anywhere in the page source, and that one toggle rule satisfied it. A
+> passing axis is not a passing component. The gate that actually holds this
+> is `every-interactive-surface-has-a-focus-ring-test`, which asserts against
+> the `focus-rules` **data** — an earlier version of that test grepped the
+> rendered sheet and kept passing when the button's rule was deleted, because
+> the selector also appears in the forced-colors block.
+
+The ring is DADS's, numbers included: a 4px `#000000` outline at 2px offset
+over a 2px `#ffd43d` halo, the two meeting with no gap. Two tones rather than
+one because this material floats over *arbitrary* content — a single-color
+ring is invisible whenever the backdrop matches it; black covers light
+backdrops, yellow covers dark ones. That is also why `:liquid-glass/focus` is
+deliberately **not** redeclared in `dark-tokens`: flipping the outline to
+white in dark mode would make both tones light and lose the guarantee.
+
+The halo is emitted as the first `box-shadow` layer *followed by the surface's
+own elevation and rim*, because `box-shadow` replaces rather than composes — a
+bare halo would delete the glass edge on focus, for exactly the users who need
+the strongest visual anchor.
+
+### `@media (hover: hover)` and cascade order
+
+Every `:hover` rule is now behind a hover-capable-pointer query, as all of
+DADS's are. A touchscreen has no way to send "pointer left", so an unguarded
+`:hover` sticks until the next tap elsewhere: the glass button floats up
+(translateY + brighter backdrop + overlay elevation) and stays there, reading
+as a stuck or selected control — precisely wrong for a material whose whole
+affordance is that it responds and settles.
+
+This makes cascade order load-bearing, since all four slices have equal
+specificity. `component-css` emits **base → `@media (hover: hover)` → press /
+disabled → focus**, which is why `press-rules` is split out of `button-rules`:
+if `:active` stayed before the hover block, hover would win while the pointer
+is both hovering and pressing and the press morph would never be visible on a
+mouse. `component-rules` returns all four concatenated in that order as the
+data view; `hover-rules`, `press-rules`, `focus-rules` and `base-rules-data`
+are public so a consumer doing its own rendering can preserve the order.
+
+### `@media (forced-colors: active)`
+
+This material is built almost entirely from things Windows High Contrast /
+forced-colors mode either strips or cannot see: `backdrop-filter` is ignored,
+`box-shadow` — the elevation *and* the rim edge light, i.e. the entire glass
+edge — is forced to `none`, and `text-shadow` is dropped. What survives
+untouched is the specular `::before`, a `mix-blend-mode: overlay` radial
+gradient, a decoration that in this mode paints a light wash over content it
+no longer sits behind. Unhandled, the result is controls with no edge under a
+haze: the users who most need contrast got the least.
+
+So the block drops the backdrop and the specular, hands the surface to the
+system palette (`Canvas` / `ButtonBorder` / `ButtonText`, `Highlight` for
+checked and filled state), and — the one that matters most — replaces
+`opacity: .45` on disabled controls with `GrayText`. Opacity is *not* part of
+the forced palette, so a dimmed-by-opacity control stays dimmed **and** gets
+recolored, which is how disabled controls become unreadable rather than merely
+quiet. DADS handles the same case the same way.
 
 ## Styling contract
 

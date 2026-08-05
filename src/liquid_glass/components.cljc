@@ -56,16 +56,93 @@
   [[tag attrs & children] lg-class]
   (into [tag (add-class attrs lg-class)] (concat children [(specular)])))
 
+;; --- buttons -------------------------------------------------------------
+;;
+;; The variant/size/href/attrs axes below are ported from the Digital Agency
+;; Design System's button (`dads-button`, via kotoba-lang/jp-go-digital-design-system):
+;; `data-type` solid-fill|outline|text, `data-size` lg|md|sm|xs, the `<a href>`
+;; form, and arbitrary-attribute passthrough where the component's own attrs
+;; win. See liquid-glass.style/button-rules for what each one renders as in
+;; glass, and docs/design.md § Buttons for the mapping table.
+
+(def ^:private button-wrapper-opts
+  "Opts this wrapper consumes itself — everything else in the map is handed to
+  shitsuke.components/button untouched (:act, :disabled, :title, :type, :class)."
+  [:variant :size :href :attrs])
+
+(defn- variant-size-classes
+  "Modifier classes for the variant/size axes. The defaults — `:outline`
+  variant and `:md` size — emit NOTHING, the same \"default variant is
+  silent\" contract `panel`'s `:regular`/`:raised` already use. That is what
+  keeps every button written before these axes existed rendering
+  byte-identically: no class, no rule, no change."
+  [base {:keys [variant size]}]
+  (cond-> []
+    (and variant (not= variant :outline)) (conj (s/class-name (str base "--" (name variant))))
+    (and size (not= size :md))            (conj (s/class-name (str base "--" (name size))))))
+
+(defn- glass-button
+  "Shared body for `button`/`icon-button`.
+
+  The `<a href>` form is built by *retagging* shitsuke's `<button>` hiccup
+  rather than by hand, so the class/`data-act`/`title` contract has exactly
+  one source. `:type` and `:disabled` are dropped on the way (neither is a
+  valid `<a>` attribute); a disabled link renders with no `href` at all —
+  which is what actually makes it unactivatable and non-focusable — plus
+  `role=\"link\"` + `aria-disabled` so it is still announced as the disabled
+  link it is."
+  [sc-fn base label opts]
+  (let [{:keys [href disabled attrs]} opts
+        lg-class (str/join " " (into [(s/class-name base)] (variant-size-classes base opts)))
+        [tag battrs & children] (glassify (sc-fn label (apply dissoc opts button-wrapper-opts))
+                                          lg-class)
+        [tag battrs] (if href
+                       [:a (cond-> (dissoc battrs :type :disabled)
+                             (not disabled) (assoc :href href)
+                             disabled       (assoc :role "link" :aria-disabled "true"))]
+                       [tag battrs])]
+    ;; :attrs is a passthrough for data-*/aria-*/hx-* — merged UNDER the
+    ;; component's own attrs so a consumer can annotate the element but never
+    ;; clobber its class, href or data-act (same contract as `list-row`).
+    (into [tag (if (seq attrs) (merge attrs battrs) battrs)] children)))
+
 (defn button
-  "Glass pill button. Same opts as shitsuke.components/button (:act, :disabled,
-  :title, :type, :class)."
+  "Glass pill button.
+
+  shitsuke opts pass through unchanged: `:act`, `:disabled`, `:title`,
+  `:type` (the HTML `type` attribute — \"button\"/\"submit\"), `:class`.
+
+  Ported from DADS on top of that:
+
+  - `:variant` — `:outline` (default, no modifier: today's glass surface) |
+    `:solid-fill` (the same material tinted with the accent — a primary
+    action that still refracts) | `:text` (no surface at all, for a tertiary
+    action inside a panel that is already glass).
+  - `:size` — `:lg` | `:md` (default, no modifier: 44px) | `:sm` (36px) |
+    `:xs` (28px). **`:sm`/`:xs` keep a full 44px touch target** via a
+    transparent centred `::after` — DADS's technique, and the reason this
+    library can now offer a compact button at all: before it, going smaller
+    meant a consumer overriding `min-height` and silently breaking the tap
+    target.
+  - `:href` — render as `<a>` instead of `<button>` (see `glass-button`).
+  - `:attrs` — arbitrary attribute passthrough; component attrs win.
+
+  Note the collision worth knowing about: DADS spells the *variant* `:type`
+  and this library spells the *HTML type attribute* `:type` (inherited from
+  shitsuke). Porting markup from jp-go-digital-design-system means
+  `:type :outline` becomes `:variant :outline`.
+
+  For a disabled-but-focusable button (so a screen-reader user can still find
+  it), pass `:attrs {:aria-disabled \"true\"}` instead of `:disabled` — the
+  style layer covers both spellings."
   ([label] (button label nil))
-  ([label opts] (glassify (sc/button label opts) (s/class-name :button))))
+  ([label opts] (glass-button sc/button "button" label opts)))
 
 (defn icon-button
-  "Glass icon button. Same opts as shitsuke.components/icon-button."
+  "Glass icon button. Same opts as `button` (including `:variant`, `:size`,
+  `:href`, `:attrs`); the size modifiers are `icon-button--*`."
   ([icon] (icon-button icon nil))
-  ([icon opts] (glassify (sc/icon-button icon opts) (s/class-name :icon-button))))
+  ([icon opts] (glass-button sc/icon-button "icon-button" icon opts)))
 
 (defn toolbar
   "Glass toolbar / floating navbar. `actions` is a seq of hiccup (typically
@@ -299,7 +376,173 @@
       (icon-button "+" {:act inc-act :disabled inc-disabled})
       (specular)])))
 
+;; --- labelled field ------------------------------------------------------
+;;
+;; Ported from DADS `form-control-label`. This library shipped six form
+;; controls and no way to label any of them: every consumer hand-rolled a
+;; <label>, and the support/error text — the part that actually has to be
+;; *announced* — was routinely left unassociated, which reads as accessible
+;; and is not.
+
+(defn- field-ids
+  "Support/error element ids derived from the control's `:id`. Deterministic
+  so `field` and `field-control-attrs` agree without either passing the other
+  anything."
+  [{:keys [id support error]}]
+  {:support (when (and id support) (str id "-support"))
+   :error   (when (and id error) (str id "-error"))})
+
+(defn field-control-attrs
+  "The attrs the control inside a `field` must carry for the field's text to
+  be associated with it — merge into the control's own opts:
+
+      (let [f {:id \"email\" :label \"Email\" :requirement \"Required\"
+               :required? true :support \"We'll send a confirmation.\"
+               :error (when invalid? \"That address isn't valid.\")}]
+        (field f (text-field (merge (field-control-attrs f)
+                                    {:value v :on-input on-input}))))
+
+  Returns `:id`, `:aria-describedby` (the support and/or error element, in
+  reading order), `:aria-invalid` when `:error` is set, and `:aria-required`
+  when `:required?` is.
+
+  Kept as a separate fn rather than having `field` rewrite the control's
+  hiccup: the controls nest their native element (`text-field` is
+  `[:div [:input] specular]`), so injection would mean walking a tree and
+  guessing which node is the control — brittle exactly where being wrong is
+  silent. DADS makes the caller wire `:for`/`aria-describedby` by hand for
+  the same reason; this at least computes the ids for you.
+
+  **The associations are keyed off `:id`.** Without one there is nothing to
+  point at, so neither `:id` nor `:aria-describedby` is emitted and `field`
+  renders a `<label>` with no `for` — visually identical, semantically inert.
+  `:aria-invalid`/`:aria-required` are intrinsic to the control rather than
+  references to other elements, so they still apply."
+  [{:keys [id error required?] :as opts}]
+  (let [{support-id :support error-id :error} (field-ids opts)
+        described (str/join " " (remove nil? [support-id error-id]))]
+    (cond-> {}
+      id              (assoc :id id)
+      (seq described) (assoc :aria-describedby described)
+      error           (assoc :aria-invalid "true")
+      required?       (assoc :aria-required "true"))))
+
+(defn field
+  "Label + optional requirement marker + support text + control + error text.
+
+  opts:
+  - `:id` — the control's id; everything else is wired off it (see
+    `field-control-attrs`).
+  - `:label` — string/hiccup.
+  - `:requirement` — the required/optional marker text (DADS's
+    `__requirement`, e.g. \"Required\" / \"必須\"). Colored with the error
+    status ink only when `:required?` is true — the *optional* marker must
+    not be red.
+  - `:required?` — boolean.
+  - `:status` — a small neutral pill (DADS's `__status`). It is a state
+    badge, NOT a required marker; jp-go-dds documents having made exactly
+    that mistake.
+  - `:support` — help text shown under the label.
+  - `:error` — error text shown under the control, with `role=\"alert\"` so a
+    validation failure is announced when it appears. Setting it also flips
+    `data-invalid` on the wrapper, which colors the control's edge.
+  - `:class`.
+
+  `control` is the control hiccup (typically `text-field`/`text-area`/
+  `menu-select`/`search-field`)."
+  ([opts control]
+   (let [{:keys [id label requirement required? status support error class]} opts
+         ids (field-ids opts)]
+     [:div {:class (cls (s/class-name :field) class)
+            :data-invalid (when error "true")}
+      [:label (cond-> {:class (s/class-name :field-label)} id (assoc :for id))
+       label
+       (when requirement
+         [:span {:class (s/class-name :field-requirement)
+                 :data-required (if required? "true" "false")}
+          requirement])
+       (when status [:span {:class (s/class-name :field-status)} status])]
+      (when support
+        [:p (cond-> {:class (s/class-name :field-support)} (:support ids) (assoc :id (:support ids)))
+         support])
+      control
+      (when error
+        [:p (cond-> {:class (s/class-name :field-error) :role "alert"}
+              (:error ids) (assoc :id (:error ids)))
+         error])])))
+
 ;; --- feedback ------------------------------------------------------------
+
+(def ^:private banner-icon-paths
+  "Minimal stroke glyphs, one per status type. Drawn here rather than copied
+  from DADS: upstream's icons are filled shapes knocked out with
+  `fill=\"Canvas\"`, which assumes the banner has an opaque background —
+  the one thing this material never has. Stroke + `currentColor` also means
+  they survive forced-colors mode, where a knockout fill would not."
+  {:success [[:circle {:cx "12" :cy "12" :r "9"}]
+             [:path {:d "M8 12.5l2.8 2.8L16 10"}]]
+   :error   [[:circle {:cx "12" :cy "12" :r "9"}]
+             [:path {:d "M9 9l6 6M15 9l-6 6"}]]
+   :warning [[:path {:d "M12 3.5L21.5 20H2.5z"}]
+             [:path {:d "M12 10v4"}]
+             [:circle {:cx "12" :cy "17" :r ".9" :fill "currentColor" :stroke "none"}]]
+   :info    [[:circle {:cx "12" :cy "12" :r "9"}]
+             [:path {:d "M12 11v5.5"}]
+             [:circle {:cx "12" :cy "8" :r ".9" :fill "currentColor" :stroke "none"}]]})
+
+(def ^:private banner-default-labels
+  {:success "Success" :error "Error" :warning "Warning" :info "Information"})
+
+(defn banner
+  "Inline status banner — DADS `notification-banner`, as glass.
+
+  Distinct from `alert`, which is a centred modal dialog that interrupts:
+  this stays in the flow of the page and blocks nothing, which is the far
+  more common shape and the one this library had no component for at all.
+
+  `body` is hiccup/string (or nil for a heading-only banner). opts:
+  - `:type` — `:info` (default) | `:success` | `:warning` | `:error`. Drives
+    the left edge color, the icon, and the ARIA live semantics: `:error` and
+    `:warning` render `role=\"alert\"` (interrupts, announced immediately),
+    the other two `role=\"status\"` (announced at the next graceful
+    opportunity).
+  - `:heading` / `:heading-level` (default 2).
+  - `:timestamp` — `{:datetime \"2026-08-05\" :text \"August 5, 2026\"}`,
+    rendered as `<time datetime=...>`.
+  - `:actions` — a seq of hiccup (typically `button`s).
+  - `:type-label` — the visually-hidden text naming the status type, since
+    the icon is `aria-hidden`. Defaults to English (\"Error\", …); pass your
+    own string to localise, or `false` to omit when the heading already says
+    it.
+  - `:id`, `:class`, `:attrs` (passthrough; component attrs win)."
+  ([body] (banner body nil))
+  ([body opts]
+   (let [{:keys [type heading heading-level timestamp actions type-label id class attrs]} opts
+         type (or type :info)
+         label (if (contains? opts :type-label) type-label (get banner-default-labels type))
+         base {:id id
+               :role (if (#{:error :warning} type) "alert" "status")
+               :class (cls (str (s/class-name :banner)
+                                (when (not= type :info)
+                                  (str " " (s/class-name (str "banner--" (name type))))))
+                           class)}]
+     [:div (if (seq attrs) (merge attrs base) base)
+      (specular)
+      (into [:svg {:class (s/class-name :banner-icon) :viewBox "0 0 24 24"
+                   :fill "none" :stroke "currentColor" :stroke-width "2"
+                   :stroke-linecap "round" :stroke-linejoin "round"
+                   :aria-hidden true :focusable "false"}]
+            (get banner-icon-paths type))
+      [:div {:class (s/class-name :banner-body)}
+       (when label [:span {:class (s/class-name :sr-only)} label])
+       (when heading
+         [(keyword (str "h" (or heading-level 2)))
+          {:class (s/class-name :banner-heading)} heading])
+       (when timestamp
+         [:time {:class (s/class-name :banner-timestamp) :datetime (:datetime timestamp)}
+          (:text timestamp)])
+       (when body [:div {:class (s/class-name :banner-content)} body])
+       (when (seq actions) [:div {:class (s/class-name :banner-actions)} actions])]])))
 
 (defn progress-bar
   "Glass linear progress track (no shitsuke equivalent). `value`/opts :max

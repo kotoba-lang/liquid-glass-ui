@@ -122,11 +122,26 @@ unwrapped for tests and custom layering pipelines. See
 
 `kotoba/tokens_core.kotoba` ports the pure token → CSS-string pipeline
 (`--liquid-glass-*` emission, light `:root` + dark `@media` redeclare).
-Component hiccup wrappers, `style.cljc` EDN→`css.core` rules, and
-`spring-linear-easing` (f64 Math) stay on the `.cljc` side. Consumer APIs
-are unchanged — this is an oracle-backed experiment ahead of W4 recursive
-values, not the final API. Byte-equality is gated by
-`test/liquid_glass/kotoba_parity_test.clj` (compiler is test-only).
+
+`kotoba/style_core.kotoba` ports the string-producing core of `style.cljc`:
+the class/selector builders (`class-name`, `btn-sel`), every glass-material
+declaration **value** (backdrop chain, tint, border, elevation + rim
+`box-shadow`, focus halo/ring, transitions, specular gradients, keyframe
+transforms, overlay animation shorthands) and the four whole functions whose
+entire output is a fixed-shape string (`lens-supports-css`,
+`spring-supports-css`, `layered-css`, `inline-style`).
+
+Still `.cljc`: component hiccup wrappers; `spring-linear-easing` (f64 Math);
+the `*-rules` vectors and `sel` (collection folds past
+`max-heterogeneous-vector-items`); and `component-css` / `base-rules-data` /
+`component-rules`, which render through `css.core` — that renderer has its
+own `.kotoba` port in kotoba-lang/css, but linking the two needs cross-repo
+project linking that does not exist yet.
+
+Consumer APIs are unchanged — this is an oracle-backed experiment ahead of
+W4 recursive values, not the final API. Byte-equality is gated by
+`test/liquid_glass/kotoba_parity_test.clj` and
+`test/liquid_glass/kotoba_style_parity_test.clj` (compiler is test-only).
 
 ## Tests
 

@@ -10,8 +10,8 @@
  ;; shadow-css are build/dev aliases only (same split as chobo/mise/senden).
  :deps {io.github.kotoba-lang/shitsuke
         {:git/url "https://github.com/kotoba-lang/shitsuke.git"
-         ;; inferred option fallback in document renderers
-         :git/sha "378923d2195e7892396366c9cf99727995d0a58b"}
+         ;; act->str is public here — liquid-glass no longer carries a copy
+         :git/sha "886560328fa448f429a1744c9f86a56bb36fb109"}
         io.github.kotoba-lang/css
         {:git/url "https://github.com/kotoba-lang/css.git"
          ;; inferred option fallback in document renderer

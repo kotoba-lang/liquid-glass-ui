@@ -30,13 +30,10 @@
             [liquid-glass.tokens :as t]
             [clojure.string :as str]))
 
-(defn- act->str
-  [a]
-  (cond
-    (nil? a) nil
-    (string? a) a
-    (keyword? a) (if-let [ns (namespace a)] (str ns "/" (name a)) (name a))
-    :else (str a)))
+;; act->str lives in shitsuke.components. It used to be copied here — a
+;; byte-identical private twin used at twelve call sites — until shitsuke made
+;; it public precisely because this library needed it. The rule is specified in
+;; shitsuke's kotoba/components_core.kotoba (act-attr) and gated there.
 
 (defn- add-class [attrs extra]
   (update attrs :class (fn [c] (if (seq c) (str c " " extra) extra))))
@@ -165,7 +162,7 @@
                   :type "button"
                   :class (str (s/class-name :tab)
                               (when (= id current) (str " " (s/class-name :tab--active))))
-                  :data-act (some-> id act->str)}
+                  :data-act (some-> id sc/act->str)}
          label])
       (specular)])))
 
@@ -202,7 +199,7 @@
    (let [{:keys [act class]} opts]
      [:div {:aria-hidden true
             :class (str (s/class-name :scrim) (when class (str " " class)))
-            :data-act (some-> act act->str)}])))
+            :data-act (some-> act sc/act->str)}])))
 
 (defn badge
   "Small glass pill badge/counter. `label` is string or hiccup. opts: :class."
@@ -248,7 +245,7 @@
   [opts]
   (let [{:keys [act on-input on-change]} opts]
     (cond-> (dissoc opts :class :act :on-input)
-      (some? act)                        (assoc :data-act (act->str act))
+      (some? act)                        (assoc :data-act (sc/act->str act))
       (and on-input (nil? on-change))    (assoc :on-change on-input)
       (and on-input (some? on-change))   (assoc :on-input on-input)
       (contains? opts :value)            (update :value #(or % "")))))
@@ -315,7 +312,7 @@
      [:label {:class (cls (s/class-name :toggle) class)}
       [:input {:id id :type "checkbox" :class (s/class-name :toggle-input)
                :checked (when checked true) :on-change on-change
-               :disabled (when disabled true) :data-act (some-> act act->str)}]
+               :disabled (when disabled true) :data-act (some-> act sc/act->str)}]
       [:span {:class (s/class-name :toggle-track)}
        [:span {:class (s/class-name :toggle-thumb)}]]])))
 
@@ -330,7 +327,7 @@
      [:label {:class (cls (s/class-name :checkbox) class)}
       [:input {:id id :type "checkbox" :class (s/class-name :checkbox-input)
                :checked (when checked true) :on-change on-change
-               :disabled (when disabled true) :data-act (some-> act act->str)}]
+               :disabled (when disabled true) :data-act (some-> act sc/act->str)}]
       [:span {:class (s/class-name :checkbox-box)}]
       (when label [:span {:class (s/class-name :checkbox-text)} label])])))
 
@@ -346,7 +343,7 @@
      [:label {:class (cls (s/class-name :radio) class)}
       [:input {:id id :type "radio" :class (s/class-name :radio-input) :name group :value value
                :checked (when checked true) :on-change on-change
-               :disabled (when disabled true) :data-act (some-> act act->str)}]
+               :disabled (when disabled true) :data-act (some-> act sc/act->str)}]
       [:span {:class (s/class-name :radio-box)}]
       (when label [:span {:class (s/class-name :radio-text)} label])])))
 
@@ -360,7 +357,7 @@
    (let [{:keys [id min max value step on-input act class]} opts]
      [:input {:id id :type "range" :class (cls (s/class-name :slider) class)
               :min (or min 0) :max (or max 100) :value (or value 0) :step step
-              :on-input on-input :data-act (some-> act act->str)}])))
+              :on-input on-input :data-act (some-> act sc/act->str)}])))
 
 (defn stepper
   "Glass +/- stepper (no shitsuke equivalent, built from `icon-button`).
@@ -625,7 +622,7 @@
    [:div {:role "menu" :class (cls (s/class-name :menu) (:class opts))}
     (for [{:keys [label act disabled]} items]
       [:button {:role "menuitem" :type "button" :class (s/class-name :menu-item)
-                :disabled (when disabled true) :data-act (some-> act act->str)}
+                :disabled (when disabled true) :data-act (some-> act sc/act->str)}
        label])
     (specular)]))
 
@@ -681,7 +678,7 @@
   ([content opts]
    (let [{:keys [act trailing class attrs]} opts
          base {:class (cls (s/class-name :list-row) class)
-               :data-act (some-> act act->str)
+               :data-act (some-> act sc/act->str)
                :role "listitem"}]
      [:div (if (seq attrs) (merge attrs base) base)
       [:div {:class (s/class-name :list-row-content)} content]
@@ -694,12 +691,12 @@
   ([label] (chip label nil))
   ([label opts]
    (let [{:keys [act on-remove-act class]} opts]
-     [:span {:class (cls (s/class-name :chip) class) :data-act (some-> act act->str)}
+     [:span {:class (cls (s/class-name :chip) class) :data-act (some-> act sc/act->str)}
       (specular)
       label
       (when on-remove-act
         [:button {:type "button" :class (s/class-name :chip-remove)
-                  :aria-label "Remove" :data-act (act->str on-remove-act)}
+                  :aria-label "Remove" :data-act (sc/act->str on-remove-act)}
          "×"])])))
 
 (defn disclosure

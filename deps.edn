@@ -18,13 +18,13 @@
          :git/sha "e10adeb678148eccb9a069819454ceb40ec8ee91"}}
  :aliases
  {:test  {:extra-paths ["test"]
-          ;; kotoba-lang/compiler is TEST-ONLY, for the form-A + D6 document
+          ;; kotoba-lang/amu is TEST-ONLY, for the form-A + D6 document
           ;; parity gates (ADR-2607270100 §10). Component hiccup wrappers and
           ;; style.cljc stay on the .cljc side.
           :extra-deps {io.github.cognitect-labs/test-runner
                        {:git/tag "v0.5.1" :git/sha "dfb30dd"}
-                       io.github.kotoba-lang/compiler
-                       {:git/url "https://github.com/kotoba-lang/compiler.git"
+                       io.github.kotoba-lang/amu
+                       {:git/url "https://github.com/kotoba-lang/amu.git"
                         ;; inferred option fallback and contextual document keys
                         :git/sha "c3be07fb38bf457a159a2b304152e18693f9b0b6"}}
           :main-opts ["-m" "cognitect.test-runner"]

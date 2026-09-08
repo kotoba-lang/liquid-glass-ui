@@ -29,7 +29,7 @@
   overrides compose the same way across both token sets. Portable .cljc, zero
   deps beyond shitsuke, babashka-safe."
   (:require [shitsuke.tokens :as shitsuke]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (defn spring-linear-easing
   "Generate a CSS `linear(...)` easing string approximating a damped spring.

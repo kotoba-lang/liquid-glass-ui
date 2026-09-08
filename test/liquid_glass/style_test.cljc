@@ -1,6 +1,6 @@
 (ns liquid-glass.style-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [liquid-glass.style :as s]))
 
 (deftest class-name-test

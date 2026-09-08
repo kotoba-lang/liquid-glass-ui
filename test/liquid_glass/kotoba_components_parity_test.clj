@@ -14,7 +14,7 @@
   The port names modifiers component-relatively (`button--lg`); the
   `liquid-glass__` prefix belongs to style_core's `class-name`. So the
   comparison composes the two, which is also how the host uses them."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]

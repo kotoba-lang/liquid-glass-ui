@@ -28,7 +28,7 @@
   (:require [shitsuke.components :as sc]
             [liquid-glass.style :as s]
             [liquid-glass.tokens :as t]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 ;; act->str lives in shitsuke.components. It used to be copied here — a
 ;; byte-identical private twin used at twelve call sites — until shitsuke made

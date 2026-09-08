@@ -32,7 +32,7 @@
   hazard that governs kotoba-parity-test does not arise here.
 
   T5.2: the one multi-arg function (`btn-sel`) is folded into a guest record."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]

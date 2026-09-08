@@ -1,6 +1,6 @@
 (ns liquid-glass.tokens-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [liquid-glass.tokens :as t]))
 
 (deftest resolve-tokens-test

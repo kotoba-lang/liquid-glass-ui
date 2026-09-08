@@ -8,7 +8,12 @@
  ;; is generated from EDN rule data via css.core, not hand-typed CSS strings —
  ;; liquid-glass-ui is css.core's first real consumer). Real reagent/re-frame/
  ;; shadow-css are build/dev aliases only (same split as chobo/mise/senden).
- :deps {io.github.kotoba-lang/shitsuke
+ :deps {
+        ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
+        ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
+        ;; this repo silently rides whatever a sibling happens to name.
+        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+       io.github.kotoba-lang/shitsuke
         {:git/url "https://github.com/kotoba-lang/shitsuke.git"
          ;; act->str is public here — liquid-glass no longer carries a copy
          :git/sha "886560328fa448f429a1744c9f86a56bb36fb109"}

@@ -12,7 +12,7 @@
   key-sorted on both sides. spring-linear-easing (f64 Math) is not ported.
 
   T5.2: multi-arg pure folded into guest records; cases call via record-new."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]

@@ -37,7 +37,7 @@
   convention as shitsuke.style/class-name."
   (:require [liquid-glass.tokens :as t]
             [css.core :as css]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (defn class-name
   "Stable class for a component or component--modifier, e.g. (class-name :button)

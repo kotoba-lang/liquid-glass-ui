@@ -1,6 +1,6 @@
 (ns liquid-glass.components-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [shitsuke.hiccup :as h]
             [liquid-glass.components :as c]
             [liquid-glass.style :as s]))

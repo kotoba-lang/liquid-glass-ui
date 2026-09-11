@@ -140,8 +140,8 @@ project linking that does not exist yet.
 
 Consumer APIs are unchanged — this is an oracle-backed experiment ahead of
 W4 recursive values, not the final API. Byte-equality is gated by
-`test/liquid_glass/kotoba_parity_test.clj` and
-`test/liquid_glass/kotoba_style_parity_test.clj` (compiler is test-only).
+`test/liquid_glass/kotoba_parity_test.cljk` and
+`test/liquid_glass/kotoba_style_parity_test.cljk` (compiler is test-only).
 
 ## Tests
 

@@ -482,7 +482,7 @@ repo does not ship the script as a library export — a JS runtime dependency
 would break the "portable `.cljc`, zero deps" core, and the whole point of
 the progressive-enhancement contract below is that a consumer can write (or
 omit) their own — but `liquid-glass.demo/specular-script` (a `^:private` plain
-string constant, `src/liquid_glass/demo.clj`) is a working ~70-line
+string constant, `src/liquid_glass/demo.cljk`) is a working ~70-line
 dependency-free reference implementation, inlined into the GitHub Pages
 showcase the same way `inline-style` inlines the stylesheet. Copy it, or
 write an equivalent against the same contract. It attaches **one**

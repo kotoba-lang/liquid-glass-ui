@@ -9,7 +9,7 @@
 ;;
 ;; Ported by poolside/laguna-s-2.1 through kotoba-code's scripts/orbench and
 ;; gated by kotoba -M inspect / -M test (jvm-kir, js, wasm) / aarch64 native,
-;; plus test/liquid_glass/kotoba_components_parity_test.clj.
+;; plus test/liquid_glass/kotoba_components_parity_test.cljk.
 ;;
 ;; This module deliberately does NOT build the `liquid-glass__` prefix.
 ;; `class-name` already lives in kotoba/style_core.kotoba in this repo; a

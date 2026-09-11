@@ -143,7 +143,7 @@ markup と CSS data は 80 tests / 916 assertions と上記 mutation で担保�
 | 実装 commit | `c2e7d31` |
 | PR | [kotoba-lang/liquid-glass-ui#15](https://github.com/kotoba-lang/liquid-glass-ui/pull/15)（merged 2026-08-05） |
 | `main` tip | `f46ad6f` |
-| superproject の pin 前進 | `com-junkawasaki/root` `1c33407`（`nbb scripts/west-pin-put.cljs` によるサーバ側 single-entry commit） |
+| superproject の pin 前進 | `com-junkawasaki/root` `1c33407`（`kbb --backend sci scripts/west-pin-put.cljk` によるサーバ側 single-entry commit） |
 
 pin 前進では最初にローカル branch 経由を試み、**base が 10 commit 古かったため
 `cloud-itonami-app` / `cssom` / `torihiki` の pin を退行させるところを

@@ -105,7 +105,7 @@ test とは別の、レンダリング実測で見つかった不具合）。
 
 `deps.edn` の `:deps` 主エントリが（意図的に）`io.github.kotoba-lang/shitsuke
 {:local/root "../shitsuke"}` になっているため、sibling checkout の無い CI
-runner で `clojure -M:test` が解決失敗していた。`deps.edn` 側を書き戻す
+runner で `kbb -M:test` が解決失敗していた。`deps.edn` 側を書き戻す
 （published git/sha に戻す）のではなく、**CI workflow 側に `git clone
 --depth 1 https://github.com/kotoba-lang/shitsuke ../shitsuke` を追加**して
 sibling を用意する形で解決した — ローカル開発と CI が同じ deps 解決経路

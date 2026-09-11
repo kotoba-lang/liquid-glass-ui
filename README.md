@@ -146,8 +146,8 @@ W4 recursive values, not the final API. Byte-equality is gated by
 ## Tests
 
 ```bash
-clojure -M:test            # published git shitsuke + css deps
-clojure -M:local:test      # local ../shitsuke + ../css overrides
+kbb -M:test            # published git shitsuke + css deps
+kbb -M:local:test      # local ../shitsuke + ../css overrides
 ```
 
 ## Design

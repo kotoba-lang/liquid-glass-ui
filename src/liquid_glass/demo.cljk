@@ -9,7 +9,7 @@
   at the end of <body> (the same SSR-embed move as inline-style); remove the
   tag and the page loses only the pointer highlight.
 
-  Usage: clojure -M -m liquid-glass.demo"
+  Usage: kbb -M -m liquid-glass.demo"
   (:require [clojure.java.io :as io]
             [shitsuke.hiccup :as h]
             [liquid-glass.style :as s]

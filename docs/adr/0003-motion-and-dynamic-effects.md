@@ -142,8 +142,8 @@ sibling を用意する形で解決した — ローカル開発と CI が同じ
 
 - `docs/design.md` § "Motion & dynamic effects"（4 層の詳細 + engine support）
 - `docs/adr/0001-liquid-glass-ui.md`, `docs/adr/0002-css-core-migration-and-ink-token.md`
-- `src/liquid_glass/tokens.cljc`（`spring-linear-easing`）
-- `src/liquid_glass/style.cljc`（`overlay-motion-rules`/`specular-pointer-rules`/
+- `src/liquid_glass/tokens.cljk`（`spring-linear-easing`）
+- `src/liquid_glass/style.cljk`（`overlay-motion-rules`/`specular-pointer-rules`/
   `lens-rules`/`spring-supports-css`/`lens-supports-css`）
-- `src/liquid_glass/components.cljc`（`lens-filter-defs`）
-- `src/liquid_glass/demo.clj`（`specular-script` reference implementation）
+- `src/liquid_glass/components.cljk`（`lens-filter-defs`）
+- `src/liquid_glass/demo.cljk`（`specular-script` reference implementation）

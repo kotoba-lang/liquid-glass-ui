@@ -1,5 +1,5 @@
 (ns liquid-glass.style-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [liquid-glass.style :as s]))
 

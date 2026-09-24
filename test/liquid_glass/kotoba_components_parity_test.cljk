@@ -15,7 +15,7 @@
   `liquid-glass__` prefix belongs to style_core's `class-name`. So the
   comparison composes the two, which is also how the host uses them."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
             [liquid-glass.components :as components]

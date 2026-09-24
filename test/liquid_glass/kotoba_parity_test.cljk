@@ -13,7 +13,7 @@
 
   T5.2: multi-arg pure folded into guest records; cases call via record-new."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
             [liquid-glass.tokens :as tokens]))

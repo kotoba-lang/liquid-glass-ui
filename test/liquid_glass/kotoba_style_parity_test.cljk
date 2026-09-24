@@ -33,7 +33,7 @@
 
   T5.2: the one multi-arg function (`btn-sel`) is folded into a guest record."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
             [liquid-glass.style :as style]))

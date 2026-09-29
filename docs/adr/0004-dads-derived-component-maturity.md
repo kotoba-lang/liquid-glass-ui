@@ -147,7 +147,7 @@ markup と CSS data は 80 tests / 916 assertions と上記 mutation で担保�
 
 pin 前進では最初にローカル branch 経由を試み、**base が 10 commit 古かったため
 `cloud-itonami-app` / `cssom` / `torihiki` の pin を退行させるところを
-`west-pin-verify-guard` が正しくブロックした**。CLAUDE.md が「API single-entry が
+`west-pin-verify-guard` が正しくブロックした**。AGENTS.md が「API single-entry が
 唯一の正経路」と定めている理由の実例なので記録しておく。superseded になった
 ローカル commit は `.git/stash-archive-2026-08-05/` に patch として退避済み。
 
@@ -173,7 +173,7 @@ form label という**実害のある欠陥**である。加えて contract を 
    fleet-db（Phase 1.5 の上流正本）へは未吸収。GitHub Actions 撤去
    （ADR-2607300900）以降これは手作業で、しかも**このセッションの変更だけでなく
    workspace 全体の drift を吸収する**操作なので、変更される全 pin の
-   fast-forward 確認とセットでないと危険（CLAUDE.md に退行を焼き込んだ実例あり）。
+   fast-forward 確認とセットでないと危険（AGENTS.md に退行を焼き込んだ実例あり）。
    ここでは意図的に実行していない。
 2. **ブラウザでの実描画確認**（上記）。`docs/index.html` は再生成済み。
 3. **`.kotoba` port**: `kotoba/tokens_core.kotoba` に新 token group
